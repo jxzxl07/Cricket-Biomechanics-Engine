@@ -1,0 +1,46 @@
+- At startup, there is a screen with 4 options / buttons to select: bowling, train bowling model, batting, train batting model.
+- For all options, it takes you to a window showing live webcam feed alongside a skeleton overlay of a person in the camera.
+- There will be a record button which sets a 5 second timer then records the webcam feed for 3 seconds, used by all 4 modes.
+- Use opencv for the webcam feed and mediapipe for the skeleton overlay.
+- Error states include no person detected, no bowling action or batting shot detected.
+- Also if no class has a high chance, greater than some threshold, then output unknown delivery type / shot type, confidence too low.
+- There should be some sort of evaluation as well with a validation set to produce confusion matrix and accuracy metrics.
+- When the model classifies anything with low confidence / unknown state, allow the user to manually correct the label.
+- This corrected clip should be pushed into the training directory so the next time "Retrain Model" is clicked, it learns from its own failures.
+- Extract the feature_importances_ array from your Scikit-Learn model. Update the UI to show the user why the model made its decision.
+- The UI could state: "Classified as Leg Spin (88% confidence) primarily due to: Maximum Wrist Speed and Release Height."
+
+Train Bowling Model:
+- This is for training the model, buy capturing the same clips but with labels with the class they belong to.
+- Aim to record 20 clips per bowling type.
+- For each frame in the bowling action, extract features: shoulder/elbow/wrist coords for both arms, hip/knee/ankle coords, angles and speeds.
+- Process the features per frame to get a feature set to train the model: max elbow angle, max wrist speed, release height, class_ label, etc.
+- Also need a retrain model button where it trains the model on any untrained additional clips.
+
+Bowling Mode:
+- The end goal is to output (a) Fair vs Illegal Delivery (b) Bowling Type + Confidence (c) Key Metrics (max elbow angle, arm speed etc)
+- The bowling arm will be figured out by a motion score for each arm (highest variance in y coord) to distnguish left vs right arm action.
+- Classes are right arm pace / off / leg spin, left arm pace / off / leg spin.
+- Since the 5 second clip will also include stationary frames / non bowling frames, we need to detect the start and end frames.
+- Also detect the exact release frame which will be the point of highest wrist velocity.  
+- This mode will use a random forest ML model to classify the bowling type.
+- Maybe include a history stack of recent classifications alongside clip names?
+
+Batting Mode and Train Batting Model:
+- Similar interface, but the classes will be drive, cut, flick, pull, sweep, reverse sweep, scoop.
+- Features to extract per frame include elbow angles, shoudler angles, torso rotation, knee angles, head position, wrist positions.
+- Aggreggate those into key features to train on: max torso rotation, max shoulder rotation, hand trajectory, front knee bend
+- Track wrist coords through time for hand trajectory, to give the path of the bat.
+- We dont need to detect the bat, we can just use skeletel metrics.
+- Frame at which wrist velocity peaks, relative to clip start gives a way to distinguish shots (early-rotation (pull) vs late-rotation scoop).
+
+- PyQt for the main GUI.
+- opencv cv2 for webcam interactions r/w.
+- mediapipe for pose estimation.
+- numpy for vector maths and data manipulation.
+- scikit-learn fo ML model.
+- sqlite3 for storage alongside local folders, include boolean flag for data already used for training so we dont retrain.
+- OpenCV + PyQt on the same thread will deadlock. You'll need a QThread or cv2 in a worker thread with signals emitted back to the main GUI thread.
+- Add joblib or pickle for model persistence between sessions via joblib.dump() to save to disk and joblib.load() to bring back to memory.
+- Must normalise positional data and speed metrics as camera distance will affect readings otherwise.
+- Use 5 fold CV when you click retrain button.
