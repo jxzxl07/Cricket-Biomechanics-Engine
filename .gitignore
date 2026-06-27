@@ -1,0 +1,28 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+*.pyo
+
+.venv/
+venv/
+env/
+.env
+
+# Personal/local captured data. Do not commit webcam clips or derived landmarks.
+data/raw/
+data/landmarks/
+data/processed/
+data/evaluation/
+data/*.sqlite3
+*.sqlite3
+
+# Keep only the model artifacts needed to run the app.
+!data/models/
+data/models/*
+!data/models/pose_landmarker_lite.task
+!data/models/batting.joblib
+!data/models/bowling.joblib
+
+# Editor/cache noise
+.idea/
+.vscode/
