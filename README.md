@@ -51,7 +51,7 @@ source .venv/bin/activate
 Install dependencies:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-desktop.txt
 ```
 
 Run the app:
@@ -111,6 +111,46 @@ ml/                       Model training, prediction, and evaluation
 vision/                   Camera worker, pose extraction, and feature engineering
 data/models/              Model files committed to the repo
 ```
+
+## API Service
+
+The trained models are also served over HTTP for programmatic access.
+Training remains desktop-only; the API performs inference against the
+committed model artifacts in `data/models/`.
+
+### Setup
+
+Requires Python 3.12.
+
+    python3.12 -m venv .venv
+    source .venv/bin/activate
+    pip install -r requirements-api.txt
+
+### Running
+
+    uvicorn api.main:app --reload
+
+Interactive docs at http://127.0.0.1:8000/docs
+
+### Endpoints
+
+`GET /health` — returns service status and whether each model loaded.
+
+    {"status": "ok", "models": {"bowling": true, "batting": true}}
+
+`POST /predict?mode={bowling|batting}` — accepts a video clip and returns
+the predicted class, confidence, full probability distribution, and the
+extracted biomechanical features.
+
+    curl -X POST "http://127.0.0.1:8000/predict?mode=batting" \
+      -F "file=@clip.mp4"
+
+Accepts `.mp4`, `.mov`, `.avi` up to 25 MB.
+
+### Tests
+
+    pip install pytest httpx
+    pytest
 
 ## Notes
 
