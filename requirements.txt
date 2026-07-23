@@ -1,7 +1,0 @@
-PyQt6
-opencv-python
-mediapipe
-scikit-learn
-joblib
-matplotlib
-numpy
