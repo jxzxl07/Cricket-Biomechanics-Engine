@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+.pytest_cache/
+gui/
+main.py
+tests/
+data/raw/
+data/landmarks/
+data/processed/
+data/evaluation/
+requirements-desktop.txt
