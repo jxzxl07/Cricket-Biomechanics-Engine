@@ -1,0 +1,84 @@
+name: CI
+
+# Continuous integration only. Deployment happens on Render from render.yaml,
+# so this workflow never needs cloud credentials and never pushes images.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-api.txt
+
+      - name: Install API dependencies
+        run: |
+          pip install -r requirements-api.txt
+          # MediaPipe's declared dependency list pulls opencv-contrib-python (needs
+          # libGL and fights the headless build), jax, jaxlib and matplotlib. The
+          # Dockerfile installs it the same way; keep the two in step.
+          pip install --no-deps mediapipe==0.10.21
+          pip install pytest==8.3.5 httpx==0.28.1
+
+      - name: Verify model artifacts against their specs
+        run: |
+          python -c "from ml.model_spec import load_spec; \
+            print('batting:', load_spec('batting_pose.json').verify_artifact()[:16]); \
+            print('bowling:', load_spec('bowling_pose.json').verify_artifact()[:16])"
+
+      - name: Run tests
+        # Clips under data/raw are gitignored, so the real-footage tests skip here.
+        run: pytest -q
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check and build
+        run: npm run build
+
+  container:
+    name: Container build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
