@@ -185,10 +185,10 @@ def _looks_like_video(contents: bytes) -> bool:
 
 
 def _video_duration(path: Path) -> float:
-    capture = cv2.VideoCapture(str(path))
+    """Duration in seconds, tolerating containers that report bad metadata."""
+    from vision.video import probe_video
+
     try:
-        fps = capture.get(cv2.CAP_PROP_FPS)
-        frames = capture.get(cv2.CAP_PROP_FRAME_COUNT)
-        return frames / fps if capture.isOpened() and fps > 0 and frames > 0 else 0.0
-    finally:
-        capture.release()
+        return probe_video(path).duration_seconds
+    except ValueError:
+        return 0.0

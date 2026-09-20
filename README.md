@@ -161,7 +161,7 @@ other), and `protobuf` must stay below 5 for MediaPipe compatibility.
 ```bash
 cd frontend
 npm install
-npm run dev          # http://localhost:5173, proxies to http://localhost:8000
+npm run dev          # http://localhost:5173, calls the API at VITE_API_BASE_URL
 ```
 
 Set `VITE_API_BASE_URL` to point at another API instance if needed
@@ -195,8 +195,18 @@ npm run qa                             # writes screenshots into ../docs
 phase-marker seeking, metric seeking and joint highlighting, slow motion, frame
 stepping, loop, the unplayable-codec fallback, poor-footage guidance, the
 bowling contract, mobile stickiness/overflow, and console/network cleanliness.
-Fixtures are derived from local footage at run time; the only committed fixture
-is a synthetic clip with no person in it.
+
+The in-browser recording flow has its own run, which drives Chrome's synthetic
+camera through permission, countdown, a six-second MediaRecorder capture and
+analysis of the recorded blob:
+
+```bash
+npm run qa:camera      # 10 checks
+```
+
+Fixtures are derived from local footage at run time. The only committed fixtures
+are a synthetic clip with no person in it and a synthetic MediaRecorder capture
+(no personal footage in either).
 
 ### Retrain the models
 
@@ -249,14 +259,12 @@ depending on clip length.
 | State | RSS |
 | --- | --- |
 | Idle with both models loaded | ~190 MB |
-| Peak during a 3-second batting analysis | ~740 MB |
+| Peak during an analysis | ~442 MB |
 
-MediaPipe pose extraction is a fixed ~400 MB of that, and ONNX Runtime would add
-another ~310 MB if its CPU arena were left enabled (`enable_cpu_mem_arena` is off
-in `ml/video_classifier.py`; it costs about 2% latency and saves a third of a
-gigabyte). Because of this the blueprint requests a 1 CPU / 2 GB instance rather
-than pretending the 512 MB free tier fits. If you must use free, expect OOM
-failures on longer clips.
+MediaPipe pose extraction is the bulk of it. The retired video model used to add
+another ~300 MB; removing it from the image is what brought peak usage inside the
+free tier. The ONNX Runtime CPU arena is also disabled in the model adapters
+(`enable_cpu_mem_arena = False`, about 2% latency for a third of a gigabyte).
 
 Local container test:
 
@@ -280,6 +288,9 @@ Linux wheels, and Render runs amd64.
 - Browsers cannot decode every codec OpenCV can (MPEG-4 Part 2 and HEVC are the
   usual offenders). The results page detects this and explains it instead of
   showing a broken player; the analysis itself is unaffected.
+- MediaRecorder WebM carries no duration in its header and OpenCV reports a
+  nonsense frame count for it, so `vision/video.py` verifies metadata by
+  decoding. There is a regression test for this in `tests/test_video.py`.
 - No user accounts, saved history, PDF reports, or native mobile app yet.
 
 ## Attribution and licensing

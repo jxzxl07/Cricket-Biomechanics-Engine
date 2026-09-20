@@ -15,7 +15,8 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-from config import DATA_DIR, FPS, MODELS_DIR
+from config import DATA_DIR, MODELS_DIR
+from vision.video import probe_video
 
 MODEL_PATH = str(MODELS_DIR / "pose_landmarker_lite.task")
 
@@ -165,16 +166,20 @@ def extract_landmarks_from_video(clip_path, mode, label=None, output_path=None, 
 
     if not capture.isOpened():
         raise ValueError(f"Could not open video clip: {clip_path}")
+    capture.release()
 
-    clip_fps = capture.get(cv2.CAP_PROP_FPS)
-
-    if clip_fps <= 0:
-        clip_fps = FPS
-
-    frame_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-    frame_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    decoded_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    # MediaRecorder output reports unusable frame counts, so ask the probe rather
+    # than trusting the container.
+    info = probe_video(clip_path)
+    clip_fps = info.fps
+    frame_width = info.width
+    frame_height = info.height
+    decoded_frames = info.frames
     step = _frame_step(decoded_frames) if decoded_frames > 0 else 1
+
+    capture = cv2.VideoCapture(str(clip_path))
+    if not capture.isOpened():
+        raise ValueError(f"Could not open video clip: {clip_path}")
 
     pose_estimator = PoseEstimator()
     frames = []

@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "qa": "node qa/browser-qa.mjs"
+    "qa": "node qa/browser-qa.mjs",
+    "qa:camera": "node qa/camera-qa.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

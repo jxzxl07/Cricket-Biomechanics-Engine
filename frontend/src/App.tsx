@@ -83,7 +83,7 @@ export default function App() {
 
         <section className="method-section container" id="method">
           <div><ShieldCheck size={22}/><span><strong>Private by design</strong>Clips are processed in a temporary directory and deleted. Nothing is stored, shared, or used for training.</span></div>
-          <div><FlaskConical size={22}/><span><strong>Honest about the models</strong>Shot labels come from a model trained on broadcast footage that scored 30% top-1 on our own phone clips—so they are marked experimental, with the measurement shown beside every result.</span></div>
+          <div><FlaskConical size={22}/><span><strong>Honest about the models</strong>Both action models are trained on this project's own clips and scored 29% (batting) and 57% (bowling) when a whole recording session is held out — so every label is marked experimental and the measured number is shown beside it.</span></div>
           <div><Crosshair size={22}/><span><strong>No verdicts, no diagnosis</strong>CreaseLab never judges bowling legality, estimates ball speed, or diagnoses injury. It measures visible movement and nothing more.</span></div>
         </section>
       </main>
