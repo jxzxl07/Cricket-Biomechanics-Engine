@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="CreaseLab">
+  <rect width="64" height="64" rx="14" fill="#07100d"/>
+  <path d="M14 44c8-2 14-8 18-16" stroke="#adff2f" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <circle cx="43" cy="21" r="6" fill="#adff2f"/>
+</svg>

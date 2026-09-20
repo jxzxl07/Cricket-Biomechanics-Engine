@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, BarChart3, BrainCircuit, ChevronRight, Crosshair, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, BarChart3, BrainCircuit, ChevronRight, Crosshair, FlaskConical, ShieldCheck, Sparkles } from "lucide-react";
 import { analyzeClip } from "./api";
 import CapturePanel from "./components/CapturePanel";
 import Results from "./components/Results";
@@ -80,6 +80,12 @@ export default function App() {
             <article><BrainCircuit/><span>03</span><h3>Improve</h3><p>Every coaching cue cites a visible phase or measured signal, with limitations made clear.</p></article>
           </div>
         </section>
+
+        <section className="method-section container" id="method">
+          <div><ShieldCheck size={22}/><span><strong>Private by design</strong>Clips are processed in a temporary directory and deleted. Nothing is stored, shared, or used for training.</span></div>
+          <div><FlaskConical size={22}/><span><strong>Honest about the models</strong>Shot labels come from a model trained on broadcast footage that scored 30% top-1 on our own phone clips—so they are marked experimental, with the measurement shown beside every result.</span></div>
+          <div><Crosshair size={22}/><span><strong>No verdicts, no diagnosis</strong>CreaseLab never judges bowling legality, estimates ball speed, or diagnoses injury. It measures visible movement and nothing more.</span></div>
+        </section>
       </main>
       <Footer />
       {loading && <div className="loading-screen"><div className="loader-orbit"><i/></div><strong>Reading the movement</strong><p>Classifying the clip, mapping 33 pose points, and building your replay…</p></div>}
@@ -88,7 +94,7 @@ export default function App() {
 }
 
 function Nav() {
-  return <nav className="nav"><div className="container nav-inner"><a href="/" className="brand"><span>CL</span> CREASELAB</a><div className="nav-links"><a href="#choose">Analyse</a><a href="https://github.com" target="_blank" rel="noreferrer">Method</a></div><span className="beta-pill">PUBLIC BETA</span></div></nav>;
+  return <nav className="nav"><div className="container nav-inner"><a href="/" className="brand"><span>CL</span> CREASELAB</a><div className="nav-links"><a href="#choose">Analyse</a><a href="#method">Method</a></div><span className="beta-pill">PUBLIC BETA</span></div></nav>;
 }
 
 function Footer() {

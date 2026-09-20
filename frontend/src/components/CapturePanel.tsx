@@ -25,18 +25,21 @@ export default function CapturePanel(props: Props) {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [cameraError, setCameraError] = useState("");
+  const [facing, setFacing] = useState<"user" | "environment">("user");
 
   useEffect(() => () => streamRef.current?.getTracks().forEach((track) => track.stop()), []);
 
-  async function enableCamera() {
+  async function enableCamera(mode: "user" | "environment" = facing) {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
       setCameraOn(true);
+      setFacing(mode);
       setCameraError("");
     } catch {
       setCameraError("Camera access was blocked. You can still upload a clip below.");
@@ -80,7 +83,14 @@ export default function CapturePanel(props: Props) {
         <div className="camera-card">
           <div className="camera-toolbar">
             <span className="live-pill"><i /> {recording ? `REC 00:0${Math.min(elapsed, 6)}` : cameraOn ? "CAMERA READY" : "PREVIEW"}</span>
-            <span className="mode-pill">{props.mode}</span>
+            <div className="toolbar-actions">
+              {cameraOn && (
+                <button className="flip-button" onClick={() => enableCamera(facing === "user" ? "environment" : "user")} title="Switch camera">
+                  Flip camera
+                </button>
+              )}
+              <span className="mode-pill">{props.mode}</span>
+            </div>
           </div>
           <div className="camera-viewport">
             {props.clipUrl && !cameraOn ? (
@@ -89,7 +99,7 @@ export default function CapturePanel(props: Props) {
               <video ref={videoRef} autoPlay muted playsInline className="camera-feed" />
             )}
             {!cameraOn && !props.clipUrl && (
-              <button className="camera-empty" onClick={enableCamera}>
+              <button className="camera-empty" onClick={() => enableCamera()}>
                 <span><Camera size={28} /></span>
                 <strong>Enable camera</strong>
                 <small>Nothing is uploaded until you choose Analyse</small>
@@ -105,7 +115,7 @@ export default function CapturePanel(props: Props) {
                 {recording ? "Stop recording" : "Record 6 seconds"}
               </button>
             ) : (
-              <button className="secondary-button" onClick={enableCamera}><Video size={18} /> Use camera</button>
+              <button className="secondary-button" onClick={() => enableCamera()}><Video size={18} /> Use camera</button>
             )}
             <label className="upload-button">
               <Upload size={18} /> Upload clip

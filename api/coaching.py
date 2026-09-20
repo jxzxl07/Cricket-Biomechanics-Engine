@@ -56,6 +56,14 @@ def _value(features: dict, key: str, digits: int = 1) -> str:
     return "not measured" if value is None else str(round(float(value), digits))
 
 
+def _percent(features: dict, key: str) -> str:
+    """Express a 0-1 fraction as a percentage for readable coaching text."""
+    value = features.get(key)
+    if value is None:
+        return "not measured"
+    return f"{round(float(value) * 100)}%"
+
+
 def rules_coach(mode: str, label: str, features: dict, reason: str | None = None) -> dict:
     """Deterministic, metric-grounded feedback used whenever the AI coach is off or fails."""
     if not features.get("action_detected"):
@@ -84,7 +92,7 @@ def rules_coach(mode: str, label: str, features: dict, reason: str | None = None
             f"and a {head_drop} torso-length head drop."
         )
         strengths = [
-            f"A clear hand-speed peak was captured at {_value(features, 'peak_speed_timing', 2)} through the action.",
+            f"Peak hand speed arrived {_percent(features, 'peak_speed_timing')} of the way through the detected action.",
             f"The lower body contributed up to {knee}° of knee flexion.",
         ]
         improvements = [{
@@ -93,7 +101,7 @@ def rules_coach(mode: str, label: str, features: dict, reason: str | None = None
             "cue": "Pick a contact point and keep your eyes level until the follow-through begins.",
         }, {
             "title": "Sequence, then accelerate",
-            "evidence": f"Peak-speed timing: {_value(features, 'peak_speed_timing', 2)} of the detected swing.",
+            "evidence": f"Peak hand speed arrived {_percent(features, 'peak_speed_timing')} of the way through the swing.",
             "cue": "Let the front foot and torso lead; send the hands through last.",
         }]
         drill = "Do 3 x 8 shadow swings with a one-second freeze at the expected contact point."

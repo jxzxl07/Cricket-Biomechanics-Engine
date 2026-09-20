@@ -11,8 +11,6 @@ __pycache__/
 research/
 tests/
 frontend/
-gui/
-main.py
 
 # Personal footage and derived data never enter an image.
 data/raw/
