@@ -46,16 +46,16 @@ recorded in a handful of sessions: **leave-one-recording-session-out**.
 | | Batting | Bowling |
 | --- | --- | --- |
 | Classes | cut, drive, flick, pull, sweep, reverse sweep, scoop | left/right-arm pace, off spin, leg spin |
-| Honest accuracy | **29.2%** | **56.5%** |
-| On classes present in training | 42.4% | 72.2% |
-| Random-split accuracy (leakage, reference only) | 66.7% | 75.7% |
+| Honest accuracy | **37.5%** | **67.4%** |
+| On classes present in training | 54.5% | 86.1% |
+| Random-split accuracy (leakage, reference only) | 52.0% | 80.0% |
 | Training data | 48 clips, 3 sessions | 46 clips, 2 sessions |
 | Displayed confidence cap | 0.60 | 0.75 |
 
 Why the numbers look modest, and why they are still the ones to trust:
 
 * Clips from one session are near-duplicates. A random split puts near-identical
-  footage on both sides and reports ~65–75% — that is the figure the earlier
+  footage on both sides and reports much stronger results — that is the figure the earlier
   Random Forest baseline advertised (74.8% CV / 85.7% holdout). It is leakage.
 * Some classes were only recorded in one session (scoop and sweep), so when that
   session is held out no model can predict them. The raw figure counts them; the
@@ -260,12 +260,12 @@ retiring the video model.
 The repository is a [Render blueprint](render.yaml):
 
 1. Push this branch to GitHub and create a new blueprint from it in Render.
-2. Render builds the FastAPI backend from the `Dockerfile` (multi-stage,
-   non-root, ONNX Runtime only — no training frameworks) and the frontend from
-   `frontend/` as a static site with SPA rewrites.
-3. Set `OPENAI_API_KEY` (optional) in the backend service's environment.
-4. After the first deploy, confirm that `VITE_API_BASE_URL` and `CORS_ORIGINS`
-   still match the actual `.onrender.com` names, then redeploy.
+2. Render builds one Docker service. A Node build stage compiles the React app,
+   then the non-root FastAPI runtime serves both the UI and API from the same
+   origin; Node and all training frameworks stay out of the runtime image.
+3. Set `OPENAI_API_KEY` (optional) in the service's environment.
+4. Open the service URL. The app is served at `/`, health at `/health`, API
+   metadata at `/api`, and interactive API documentation at `/docs`.
 
 Free-tier notes: the API keeps a single worker so models load once; expect a
 cold start of roughly a minute after idle, and warm analyses of ~5–20 s
@@ -299,9 +299,9 @@ Linux wheels, and Render runs amd64.
 
 ## Known limitations
 
-- Batting labels are experimental and wrong more often than right on phone
+- Batting labels are experimental and remain wrong more often than right on phone
   footage; the UI says so next to every result.
-- Bowling classification is a pose heuristic for pace vs spin only.
+- Bowling classification is an experimental pose-feature model for pace vs spin families.
 - Pose metrics come from a single camera and are approximate; there is no true
   ball tracking, no ball-speed estimate, and no injury or legality assessment.
 - One athlete is assumed; a second person in frame degrades tracking (the

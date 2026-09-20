@@ -1,12 +1,10 @@
-# Render blueprint for CreaseLab: Dockerized FastAPI backend + static React frontend.
-#
-# The service names below produce https://<name>.onrender.com URLs. After the
-# first deploy, keep VITE_API_BASE_URL and CORS_ORIGINS in sync with the real
-# names (update both if you rename a service in the Render dashboard).
+# Render blueprint for CreaseLab. The Docker service serves both the compiled
+# React application and FastAPI, so one public URL is sufficient and frontend /
+# backend URL configuration cannot drift.
 
 services:
   - type: web
-    name: creaselab-api
+    name: creaselab
     runtime: docker
     # Measured inside this image: ~190 MB idle with models loaded, 442-491 MB peak
     # during an analysis (MediaPipe pose dominates; ONNX arenas are disabled in
@@ -19,7 +17,7 @@ services:
     autoDeploy: true
     envVars:
       - key: CORS_ORIGINS
-        value: https://creaselab-web.onrender.com,http://localhost:5173
+        value: http://localhost:5173
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_COACH_MODEL
@@ -28,22 +26,3 @@ services:
         value: "55"
       - key: PYTHONUNBUFFERED
         value: "1"
-
-  - type: web
-    name: creaselab-web
-    runtime: static
-    buildCommand: cd frontend && npm ci && npm run build
-    staticPublishPath: frontend/dist
-    autoDeploy: true
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      # Baked in at build time; change together with the api service name.
-      - key: VITE_API_BASE_URL
-        value: https://creaselab-api.onrender.com
-    headers:
-      - path: /assets/*
-        name: Cache-Control
-        value: public, max-age=31536000, immutable

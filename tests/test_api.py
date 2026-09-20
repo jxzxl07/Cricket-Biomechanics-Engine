@@ -48,10 +48,26 @@ def test_health_endpoints_agree(client):
         assert ".mp4" in body["limits"]["formats"]
 
 
-def test_root_advertises_schema_version(client):
-    body = client.get("/").json()
+def test_api_metadata_advertises_schema_version(client):
+    body = client.get("/api").json()
     assert body["schema_version"]
     assert body["docs"] == "/docs"
+
+
+def test_root_serves_frontend_when_built(client):
+    response = client.get("/")
+    if not api_main.FRONTEND_DIST.joinpath("index.html").is_file():
+        assert response.json()["schema_version"]
+        return
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert '<div id="root"></div>' in response.text
+
+
+def test_unknown_api_route_is_not_rewritten_to_frontend(client):
+    response = client.get("/api/v1/does-not-exist")
+    assert response.status_code == 404
+    assert response.headers["content-type"].startswith("application/json")
 
 
 def test_models_endpoint_reports_both_modes(client):

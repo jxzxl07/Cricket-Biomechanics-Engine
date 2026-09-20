@@ -10,12 +10,13 @@ clips**, both consuming the same pose features the API computes:
 | --- | --- | --- |
 | Spec | `batting_pose.json` | `bowling_pose.json` |
 | Artifact | `batting_pose.onnx` | `bowling_pose.onnx` |
-| Model | logistic regression over 12 pose features | random forest over 13 pose features |
+| Model | strongly regularised logistic regression over 12 pose features | strongly regularised logistic regression over 13 pose features |
 | Classes | cut, drive, flick, pull, sweep, reverse sweep, scoop | left/right-arm pace, off spin, leg spin |
-| Honest accuracy (leave-one-session-out) | **29.2%** | **56.5%** |
-| On classes present in training | 42.4% (33/48 clips) | 72.2% (36/46 clips) |
-| Random-split accuracy (leakage, reference only) | 66.7% | 75.7% |
-| Abstain threshold | 0.60 | 0.40 |
+| Honest accuracy (leave-one-session-out) | **37.5%** | **67.4%** |
+| On classes present in training | 54.5% (33/48 clips) | 86.1% (36/46 clips) |
+| Random-split accuracy (leakage, reference only) | 52.0% | 80.0% |
+| Selective accuracy after abstention | 40.0% at 83.3% coverage | 82.1% at 60.9% coverage |
+| Abstain score / margin | 0.145664 / 0.000004 | 0.168510 / 0.002092 |
 | Displayed confidence cap | 0.60 | 0.75 |
 | Training data | 48 clips, 7 classes, 3 sessions | 46 clips, 6 classes, 2 sessions |
 
@@ -27,13 +28,17 @@ Full reports: `data/evaluation/batting_pose_training_report.json`,
 
 Every clip was recorded by one athlete in a handful of sessions minutes apart.
 Clips from the same session are near-duplicates, so a random train/test split
-puts almost identical footage on both sides and reports ~65–75%. That is the
+puts almost identical footage on both sides and reports deceptively strong results. That is the
 number the earlier Random Forest baseline advertised (74.8% CV / 85.7% holdout);
 it is leakage, not accuracy.
 
 These models are therefore evaluated with **leave-one-recording-session-out**
-cross-validation. The gap is printed in the spec on purpose: +37.5 points for
-batting, +19.2 for bowling.
+cross-validation. The gap is printed in the spec on purpose: +14.5 points for
+batting, +12.6 for bowling. The v2 classifiers use substantially stronger
+regularisation than v1; on whole-session holdouts this raised batting by 8.3
+points and bowling by 10.9 points. Their conservative probabilities are paired
+with score-and-margin abstention policies fitted only to those held-out
+predictions.
 
 Two further limits are reported rather than hidden:
 

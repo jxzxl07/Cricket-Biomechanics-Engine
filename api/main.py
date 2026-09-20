@@ -18,6 +18,7 @@ from pathlib import Path
 import cv2
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from starlette.concurrency import run_in_threadpool
 
 from api.analysis import ANALYSIS_SCHEMA_VERSION, AnalysisEngine
@@ -29,6 +30,7 @@ MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 MAX_DURATION_SECONDS = 12
 ALLOWED_SUFFIXES = {".mp4", ".mov", ".avi", ".webm", ".mkv"}
 PROCESSING_BUDGET_SECONDS = float(os.getenv("ANALYSIS_TIME_BUDGET_SECONDS", "55"))
+FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
 
 # Container signatures. Browsers disagree about MIME types for MOV/WebM, so the
 # bytes decide, not the extension or the declared content type.
@@ -93,9 +95,24 @@ app.add_middleware(
 )
 
 
-@app.get("/")
-def root():
+def _api_metadata() -> dict:
     return {"name": "CreaseLab", "version": app.version, "schema_version": ANALYSIS_SCHEMA_VERSION, "docs": "/docs"}
+
+
+@app.get("/api", include_in_schema=False)
+def api_metadata():
+    return _api_metadata()
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    """Serve the product UI at the public service URL.
+
+    A source checkout without a frontend build still exposes useful API
+    metadata, which keeps backend-only development and tests straightforward.
+    """
+    index = FRONTEND_DIST / "index.html"
+    return FileResponse(index) if index.is_file() else _api_metadata()
 
 
 def _health() -> dict:
@@ -192,3 +209,16 @@ def _video_duration(path: Path) -> float:
         return probe_video(path).duration_seconds
     except ValueError:
         return 0.0
+
+
+@app.get("/{frontend_path:path}", include_in_schema=False)
+def frontend(frontend_path: str):
+    """Serve compiled assets and fall back to the React entry point for SPA routes."""
+    if frontend_path.split("/", 1)[0] in {"api", "health", "docs", "redoc", "openapi.json"}:
+        raise HTTPException(404, "Not found")
+    if not FRONTEND_DIST.is_dir():
+        raise HTTPException(404, "Not found")
+    requested = (FRONTEND_DIST / frontend_path).resolve()
+    if FRONTEND_DIST.resolve() in requested.parents and requested.is_file():
+        return FileResponse(requested)
+    return FileResponse(FRONTEND_DIST / "index.html")

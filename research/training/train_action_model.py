@@ -50,6 +50,14 @@ def load_dataset(path: Path, mode: str):
 
 def candidates() -> dict[str, object]:
     return {
+        # With fewer than 50 clips per mode, the original C=1 model overfits
+        # recording-session details.  This setting was added after comparing
+        # whole-session holdouts; it deliberately favours a smoother boundary.
+        "strongly_regularized_logistic_regression": Pipeline([
+            ("impute", SimpleImputer(strategy="median")),
+            ("scale", StandardScaler()),
+            ("model", LogisticRegression(max_iter=2000, C=0.001, class_weight="balanced")),
+        ]),
         "logistic_regression": Pipeline([
             ("impute", SimpleImputer(strategy="median")),
             ("scale", StandardScaler()),

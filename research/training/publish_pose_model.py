@@ -14,6 +14,8 @@ import hashlib
 import json
 from pathlib import Path
 
+import numpy as np
+
 from config import DATA_DIR
 from research.training.pose_dataset import feature_names
 
@@ -47,44 +49,60 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def choose_threshold(report: dict) -> dict:
-    """Pick the abstain threshold from measured probabilities."""
+def choose_abstention_policy(report: dict) -> dict:
+    """Pick score and margin cutoffs from out-of-session predictions.
+
+    Candidate cutoffs come from the measured probability distribution rather
+    than a fixed 0.30--0.90 range.  Strong regularisation is valuable for this
+    tiny dataset but intentionally produces conservative probabilities; a
+    fixed range would therefore make the improved models abstain on every clip.
+    """
     grouped = report["grouped_cross_validation"]
-    probabilities = grouped["probabilities"]
+    probabilities = np.asarray(grouped["probabilities"], dtype=float)
     predictions = grouped["predictions"]
     truth = grouped["truth"]
 
+    ordered = np.sort(probabilities, axis=1)
+    scores = ordered[:, -1]
+    margins = ordered[:, -1] - ordered[:, -2]
+    quantiles = np.linspace(0, 1, 21)
+    score_cutoffs = np.unique(np.quantile(scores, quantiles))
+    margin_cutoffs = np.unique(np.quantile(margins, quantiles))
     curve = []
-    for threshold in [round(0.30 + 0.05 * step, 2) for step in range(13)]:
-        kept = [index for index, row in enumerate(probabilities) if max(row) >= threshold]
-        if not kept:
-            continue
-        correct = sum(1 for index in kept if predictions[index] == truth[index])
-        curve.append({
-            "threshold": threshold,
-            "coverage": round(len(kept) / len(probabilities), 3),
-            "accuracy": round(correct / len(kept), 3),
-        })
+    for threshold in score_cutoffs:
+        for margin in margin_cutoffs:
+            kept = np.flatnonzero((scores >= threshold) & (margins >= margin))
+            if not len(kept):
+                continue
+            correct = sum(predictions[index] == truth[index] for index in kept)
+            curve.append({
+                "threshold": round(float(threshold), 6),
+                "margin": round(float(margin), 6),
+                "coverage": round(len(kept) / len(probabilities), 3),
+                "accuracy": round(correct / len(kept), 3),
+            })
 
     eligible = [point for point in curve if point["coverage"] >= MIN_COVERAGE]
-    selected = max(eligible, key=lambda point: point["accuracy"]) if eligible else curve[-1]
+    selected = max(eligible, key=lambda point: (point["accuracy"], point["coverage"])) if eligible else curve[0]
     # Copy before attaching the curve: the selected point is itself in the curve.
     best = dict(selected)
-    best["curve"] = curve
+    # The full grid is noisy in a model card. Keep the useful score-only slice
+    # plus the selected joint policy for reproducibility.
+    best["curve"] = [point for point in curve if point["margin"] == round(float(margin_cutoffs[0]), 6)]
     return best
 
 
 def build_spec(mode: str, report: dict, artifact: Path) -> dict:
     grouped = report["grouped_cross_validation"]
-    threshold = choose_threshold(report)
+    abstention = choose_abstention_policy(report)
     classes = sorted(report["classes"])
     seen = grouped.get("accuracy_on_seen_classes")
     raw = grouped["accuracy"]
     experimental = True
     cap = 0.6 if mode == "batting" else 0.75
     return {
-        "id": f"pose-{mode}-{report['selected_model']}-v1",
-        "version": "1.0.0",
+        "id": f"pose-{mode}-{report['selected_model']}-v2",
+        "version": "2.0.0",
         "kind": "pose_feature_classifier",
         "artifact": artifact.name,
         "sha256": sha256(artifact),
@@ -98,8 +116,8 @@ def build_spec(mode: str, report: dict, artifact: Path) -> dict:
         "display_labels": {name: DISPLAY_LABELS.get(name, name.replace("_", " ").title()) for name in classes},
         "experimental": experimental,
         "confidence_cap": cap,
-        "unknown_threshold": threshold["threshold"],
-        "unknown_margin": 0.10,
+        "unknown_threshold": abstention["threshold"],
+        "unknown_margin": abstention["margin"],
         "note": (
             "Trained on this project's own clips. Small dataset, one athlete: it generalises to new "
             "sessions only as well as the measured number shows."
@@ -126,7 +144,7 @@ def build_spec(mode: str, report: dict, artifact: Path) -> dict:
             "folds": grouped["folds"],
             "mean_confidence_correct": report["mean_confidence_correct"],
             "mean_confidence_incorrect": report["mean_confidence_incorrect"],
-            "abstain_threshold": threshold,
+            "abstention_policy": abstention,
             "candidates": report["candidates"],
             "source": f"data/evaluation/{mode}_pose_training_report.json",
             "interpretation": (
@@ -158,8 +176,9 @@ def main() -> None:
         "id": spec["id"],
         "classes": spec["classes"],
         "unknown_threshold": spec["unknown_threshold"],
+        "unknown_margin": spec["unknown_margin"],
         "confidence_cap": spec["confidence_cap"],
-        "benchmark": {k: v for k, v in spec["benchmark"].items() if k not in {"folds", "per_class_recall", "candidates", "abstain_threshold"}},
+        "benchmark": {k: v for k, v in spec["benchmark"].items() if k not in {"folds", "per_class_recall", "candidates", "abstention_policy"}},
     }, indent=2))
 
 

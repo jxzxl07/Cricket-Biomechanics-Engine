@@ -1,6 +1,15 @@
-# CreaseLab analysis API image.
-# Multi-stage: training tools never enter the image, only ONNX Runtime,
-# MediaPipe and the service code. Runs as a non-root user.
+# CreaseLab web application image.
+# Multi-stage: Node and training tools never enter the runtime image. FastAPI
+# serves both the API and the compiled React app, so the public service URL
+# cannot accidentally expose the API metadata page instead of the product.
+
+FROM node:22-alpine AS frontend-build
+
+WORKDIR /web
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
 
 FROM python:3.12-slim AS base
 
@@ -28,6 +37,7 @@ COPY api/ ./api/
 COPY ml/ ./ml/
 COPY vision/ ./vision/
 COPY config.py .
+COPY --from=frontend-build /web/dist ./frontend/dist
 
 # Only the deployable artifacts; no raw video, no research code, no tests.
 COPY data/models/pose_landmarker_lite.task ./data/models/

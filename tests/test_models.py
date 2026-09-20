@@ -96,18 +96,18 @@ def test_probability_vector_is_normalised(batting_spec):
 
 
 def test_low_margin_becomes_unknown(batting_spec):
-    probabilities = np.zeros(len(batting_spec.classes))
-    probabilities[0] = 0.9
-    probabilities[1] = 0.85
+    probabilities = np.full(len(batting_spec.classes), 0.01)
+    probabilities[0] = batting_spec.unknown_threshold + 0.1
+    probabilities[1] = probabilities[0] - batting_spec.unknown_margin / 2
     assert build_classification(probabilities, batting_spec)["unknown"] is True
 
 
 def test_low_score_becomes_unknown(batting_spec):
-    probabilities = np.full(len(batting_spec.classes), 0.05)
-    probabilities[0] = 0.4
+    probabilities = np.full(len(batting_spec.classes), 0.01)
+    probabilities[0] = batting_spec.unknown_threshold / 2
     result = build_classification(probabilities, batting_spec)
     assert result["unknown"] is True
-    assert result["raw_confidence"] == pytest.approx(0.4, abs=1e-6)
+    assert result["raw_confidence"] == pytest.approx(batting_spec.unknown_threshold / 2, abs=1e-6)
 
 
 def test_confidence_is_capped_for_experimental_models(batting_spec):

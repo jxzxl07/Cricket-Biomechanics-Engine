@@ -63,6 +63,11 @@ class PoseActionClassifier:
         return np.array([row], dtype=np.float32)
 
     def predict(self, features: dict) -> dict:
+        # An imputer can turn a completely absent pose into a plausible-looking
+        # median athlete. Never let that synthetic row become a classification.
+        observed = [features.get(name) for name in self.feature_names if name not in DERIVED_FEATURES]
+        if not any(value is not None for value in observed):
+            return build_classification(np.full(len(self.spec.classes), 1 / len(self.spec.classes)), self.spec)
         probabilities = np.asarray(
             self.session.run(None, {self.input_name: self.feature_vector(features)})[self.probability_output]
         )[0]

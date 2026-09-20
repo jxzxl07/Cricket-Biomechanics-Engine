@@ -1,10 +1,10 @@
 {
-  "id": "pose-bowling-random_forest-v1",
-  "version": "1.0.0",
+  "id": "pose-bowling-strongly_regularized_logistic_regression-v2",
+  "version": "2.0.0",
   "kind": "pose_feature_classifier",
   "artifact": "bowling_pose.onnx",
-  "sha256": "fec72a545a1a8c90acbbbe53d0954b349d95ffcc8b6aaf7bb2503e8d54d407fa",
-  "architecture": "random_forest over 13 MediaPipe pose features, exported to ONNX",
+  "sha256": "236779c1c958fa3738eb65526fdca63184e54e3748c0075ced76d88b39b6f342",
+  "architecture": "strongly_regularized_logistic_regression over 13 MediaPipe pose features, exported to ONNX",
   "input": {
     "features": [
       "peak_wrist_speed",
@@ -42,12 +42,12 @@
   },
   "experimental": true,
   "confidence_cap": 0.75,
-  "unknown_threshold": 0.4,
-  "unknown_margin": 0.1,
+  "unknown_threshold": 0.16851,
+  "unknown_margin": 0.002092,
   "note": "Trained on this project's own clips. Small dataset, one athlete: it generalises to new sessions only as well as the measured number shows.",
   "limitations": [
     "Trained on 46 clips from 2 recording sessions of a single athlete.",
-    "Leave-one-session-out accuracy is 57% (rising to 72% on clips whose class appears in the training sessions).",
+    "Leave-one-session-out accuracy is 67% (rising to 86% on clips whose class appears in the training sessions).",
     "Some classes only appear in one session, so a held-out session can contain classes the model never saw.",
     "A random split of this dataset reports a much higher number; that figure is leakage and is not published as accuracy.",
     "Not validated on other athletes, other cameras, or match conditions."
@@ -57,15 +57,15 @@
     "dataset": "This project's clips (46 clips, 2 sessions)",
     "independent": false,
     "scheme": "leave-one-recording-session-out",
-    "top1_accuracy": 0.5652173913043478,
-    "top1_accuracy_on_seen_classes": 0.7222222222222222,
+    "top1_accuracy": 0.6739130434782609,
+    "top1_accuracy_on_seen_classes": 0.8611111111111112,
     "clips_on_seen_classes": 36,
-    "random_split_accuracy_for_reference": 0.7571428571428571,
-    "leakage_gap": 0.19192546583850933,
+    "random_split_accuracy_for_reference": 0.7999999999999999,
+    "leakage_gap": 0.12608695652173907,
     "per_class_recall": {
-      "left_arm_leg": 0.25,
+      "left_arm_leg": 0.5,
       "left_arm_off": 0.0,
-      "left_arm_pace": 0.6666666666666666,
+      "left_arm_pace": 1.0,
       "right_arm_leg": 1.0,
       "right_arm_off": 0.0,
       "right_arm_pace": 0.9
@@ -74,7 +74,7 @@
       {
         "held_out_session": "2026-06-27 09:30",
         "held_out_clips": 30,
-        "accuracy": 0.5,
+        "accuracy": 0.6,
         "classes_in_held_out_session": [
           "left_arm_leg",
           "left_arm_off",
@@ -91,7 +91,7 @@
       {
         "held_out_session": "2026-06-27 11:00",
         "held_out_clips": 16,
-        "accuracy": 0.6875,
+        "accuracy": 0.8125,
         "classes_in_held_out_session": [
           "left_arm_leg",
           "left_arm_pace",
@@ -101,61 +101,144 @@
         "classes_absent_from_training": []
       }
     ],
-    "mean_confidence_correct": 0.4964855030513498,
-    "mean_confidence_incorrect": 0.39346120916749794,
-    "abstain_threshold": {
-      "threshold": 0.4,
-      "coverage": 0.652,
-      "accuracy": 0.7,
+    "mean_confidence_correct": 0.2202111738000375,
+    "mean_confidence_incorrect": 0.2367862703033169,
+    "abstention_policy": {
+      "threshold": 0.16851,
+      "margin": 0.002092,
+      "coverage": 0.609,
+      "accuracy": 0.821,
       "curve": [
         {
-          "threshold": 0.3,
+          "threshold": 0.16851,
+          "margin": 5.8e-05,
           "coverage": 1.0,
-          "accuracy": 0.565
+          "accuracy": 0.674
         },
         {
-          "threshold": 0.35,
-          "coverage": 0.87,
+          "threshold": 0.169141,
+          "margin": 5.8e-05,
+          "coverage": 0.935,
+          "accuracy": 0.698
+        },
+        {
+          "threshold": 0.169517,
+          "margin": 5.8e-05,
+          "coverage": 0.891,
+          "accuracy": 0.683
+        },
+        {
+          "threshold": 0.170612,
+          "margin": 5.8e-05,
+          "coverage": 0.848,
+          "accuracy": 0.667
+        },
+        {
+          "threshold": 0.171006,
+          "margin": 5.8e-05,
+          "coverage": 0.804,
+          "accuracy": 0.676
+        },
+        {
+          "threshold": 0.171905,
+          "margin": 5.8e-05,
+          "coverage": 0.739,
+          "accuracy": 0.647
+        },
+        {
+          "threshold": 0.173273,
+          "margin": 5.8e-05,
+          "coverage": 0.696,
           "accuracy": 0.625
         },
         {
-          "threshold": 0.4,
+          "threshold": 0.23172,
+          "margin": 5.8e-05,
           "coverage": 0.652,
-          "accuracy": 0.7
+          "accuracy": 0.6
         },
         {
-          "threshold": 0.45,
+          "threshold": 0.251628,
+          "margin": 5.8e-05,
+          "coverage": 0.609,
+          "accuracy": 0.643
+        },
+        {
+          "threshold": 0.252738,
+          "margin": 5.8e-05,
+          "coverage": 0.543,
+          "accuracy": 0.64
+        },
+        {
+          "threshold": 0.253338,
+          "margin": 5.8e-05,
+          "coverage": 0.5,
+          "accuracy": 0.696
+        },
+        {
+          "threshold": 0.253753,
+          "margin": 5.8e-05,
           "coverage": 0.457,
-          "accuracy": 0.81
+          "accuracy": 0.667
         },
         {
-          "threshold": 0.5,
+          "threshold": 0.254049,
+          "margin": 5.8e-05,
+          "coverage": 0.413,
+          "accuracy": 0.684
+        },
+        {
+          "threshold": 0.254256,
+          "margin": 5.8e-05,
+          "coverage": 0.348,
+          "accuracy": 0.75
+        },
+        {
+          "threshold": 0.25466,
+          "margin": 5.8e-05,
+          "coverage": 0.304,
+          "accuracy": 0.786
+        },
+        {
+          "threshold": 0.255209,
+          "margin": 5.8e-05,
           "coverage": 0.261,
-          "accuracy": 0.917
+          "accuracy": 0.833
         },
         {
-          "threshold": 0.55,
-          "coverage": 0.174,
-          "accuracy": 0.875
+          "threshold": 0.255572,
+          "margin": 5.8e-05,
+          "coverage": 0.217,
+          "accuracy": 0.8
         },
         {
-          "threshold": 0.6,
+          "threshold": 0.256207,
+          "margin": 5.8e-05,
+          "coverage": 0.152,
+          "accuracy": 0.857
+        },
+        {
+          "threshold": 0.256969,
+          "margin": 5.8e-05,
           "coverage": 0.109,
           "accuracy": 1.0
         },
         {
-          "threshold": 0.65,
+          "threshold": 0.257894,
+          "margin": 5.8e-05,
           "coverage": 0.065,
           "accuracy": 1.0
         },
         {
-          "threshold": 0.7,
+          "threshold": 0.260726,
+          "margin": 5.8e-05,
           "coverage": 0.022,
           "accuracy": 1.0
         }
       ]
     },
     "candidates": {
+      "strongly_regularized_logistic_regression": 0.6739130434782609,
       "logistic_regression": 0.5434782608695652,
       "random_forest": 0.5652173913043478,
       "gradient_boosting": 0.34782608695652173
@@ -165,7 +248,7 @@
   },
   "provenance": {
     "trained_by": "research/training/train_action_model.py",
-    "trained_at": "2026-09-20T13:56:55+00:00",
+    "trained_at": "2026-09-20T16:16:33+00:00",
     "data": "data/landmarks (gitignored personal footage)",
     "weights_license": "Trained here; no third-party weights"
   }

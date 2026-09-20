@@ -61,7 +61,7 @@ export default function App() {
           <div className="mode-grid">
             <button className={`mode-card batting ${mode === "batting" ? "selected" : ""}`} onClick={() => setMode("batting")}>
               <span className="mode-number">01</span><div className="mode-art bat-art"><i/><i/></div>
-              <div><span className="mode-label">BATTING</span><h3>Read the shot</h3><p>10 shot families, hand-speed timing, balance, rotation, and finish shape.</p><strong>Analyse batting <ChevronRight size={18}/></strong></div>
+              <div><span className="mode-label">BATTING · EXPERIMENTAL</span><h3>Read the shot</h3><p>Seven shot families, hand-speed timing, balance, rotation, and finish shape.</p><strong>Analyse batting <ChevronRight size={18}/></strong></div>
             </button>
             <button className={`mode-card bowling ${mode === "bowling" ? "selected" : ""}`} onClick={() => setMode("bowling")}>
               <span className="mode-number">02</span><div className="mode-art bowl-art"><i/><i/><i/></div>
@@ -75,7 +75,7 @@ export default function App() {
         <section className="how-section container">
           <div className="section-kicker">Built for useful honesty</div><h2>More than a label.</h2>
           <div className="how-grid">
-            <article><Crosshair/><span>01</span><h3>Classify</h3><p>A temporal video model reads the complete batting action—not a single frozen pose.</p></article>
+            <article><Crosshair/><span>01</span><h3>Classify</h3><p>A pose-feature model reads movement across the complete action—not a single frozen pose.</p></article>
             <article><BarChart3/><span>02</span><h3>Measure</h3><p>Pose signals reveal timing, ranges, release or peak speed, and capture quality.</p></article>
             <article><BrainCircuit/><span>03</span><h3>Improve</h3><p>Every coaching cue cites a visible phase or measured signal, with limitations made clear.</p></article>
           </div>
@@ -83,7 +83,7 @@ export default function App() {
 
         <section className="method-section container" id="method">
           <div><ShieldCheck size={22}/><span><strong>Private by design</strong>Clips are processed in a temporary directory and deleted. Nothing is stored, shared, or used for training.</span></div>
-          <div><FlaskConical size={22}/><span><strong>Honest about the models</strong>Both action models are trained on this project's own clips and scored 29% (batting) and 57% (bowling) when a whole recording session is held out — so every label is marked experimental and the measured number is shown beside it.</span></div>
+          <div><FlaskConical size={22}/><span><strong>Honest about the models</strong>Both action models are trained on this project's own clips and scored 38% (batting) and 67% (bowling) when a whole recording session is held out — so every label is marked experimental and the measured number is shown beside it.</span></div>
           <div><Crosshair size={22}/><span><strong>No verdicts, no diagnosis</strong>CreaseLab never judges bowling legality, estimates ball speed, or diagnoses injury. It measures visible movement and nothing more.</span></div>
         </section>
       </main>

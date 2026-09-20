@@ -22,8 +22,12 @@ MODEL_PATH = str(MODELS_DIR / "pose_landmarker_lite.task")
 
 # Two poses lets the quality gate notice a second athlete in frame.
 NUM_POSES = 2
-# Upper bound on analysed frames so a 12s 60fps clip cannot blow the request budget.
-MAX_ANALYSED_FRAMES = 240
+# Upper bound on analysed frames. MediaPipe pose costs roughly 15 ms/frame on a
+# laptop core but ~240 ms/frame on a 0.1-CPU instance, so this budget is what
+# keeps the worst case inside the request deadline there: 150 x 240 ms = 36 s.
+# Longer clips are sampled with a stride, which lowers replay overlay smoothness
+# but not the metrics, because speeds are computed from the analysed frame rate.
+MAX_ANALYSED_FRAMES = 150
 
 POSE_LANDMARK_NAMES = [
     "nose",
