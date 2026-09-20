@@ -10,20 +10,21 @@ RECORD_SECONDS = 3
 FPS = 30
 
 BOWLING_LABELS = [
-    "Left Arm Leg",
-    "Left Arm Off",
-    "Left Arm Pace",
-    "Right Arm Leg",
-    "Right Arm Off",
-    "Right Arm Pace",
+    "Left-arm pace",
+    "Right-arm pace",
+    "Left-arm spin",
+    "Right-arm spin",
 ]
 
 BATTING_LABELS = [
-    "Cut",
-    "Drive",
+    "Cover Drive",
+    "Defence",
     "Flick",
+    "Hook",
+    "Late Cut",
+    "Lofted Shot",
     "Pull",
-    "Reverse Sweep",
-    "Scoop",
+    "Square Cut",
+    "Straight Drive",
     "Sweep",
 ]
