@@ -210,8 +210,8 @@ def test_bowling_analysis_contract(client, real_bowling_clip: Path):
     classification = body["classification"]
     if classification["label"] != "unknown":
         assert classification["model"]["experimental"] is True
-        assert classification["confidence"] <= 0.69
-        assert classification["model"]["kind"] == "transparent_pose_prototype"
+        assert classification["confidence"] <= classification["model"]["confidence_cap"]
+        assert classification["model"]["kind"] == "pose_feature_classifier"
     assert _no_legality_fields(body) == []
 
 

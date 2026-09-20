@@ -1,0 +1,8 @@
+# Research-only dependencies: training, evaluation and dataset tooling.
+# Production never imports these (see requirements-api.txt).
+-r requirements-api.txt
+scikit-learn==1.5.2
+skl2onnx==1.17.0
+onnx==1.17.0
+pytest==8.3.5
+httpx==0.28.1

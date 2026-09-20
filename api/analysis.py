@@ -12,11 +12,12 @@ from pathlib import Path
 
 from api.coaching import enhanced_coach, rules_coach
 from ml.model_spec import ModelSpec, load_spec
-from ml.video_classifier import (
+from ml.pose_classifier import (
     BATTING_SPEC_FILE,
     BOWLING_SPEC_FILE,
-    BattingVideoClassifier,
-    BowlingPrototypeClassifier,
+    PoseActionClassifier,
+    load_batting_classifier,
+    load_bowling_classifier,
 )
 from vision.features import extract_features_from_data, load_landmark_json
 from vision.pose import extract_landmarks_from_video
@@ -40,8 +41,8 @@ class AnalysisEngine:
     def __init__(self):
         self.batting_spec: ModelSpec = load_spec(BATTING_SPEC_FILE)
         self.bowling_spec: ModelSpec = load_spec(BOWLING_SPEC_FILE)
-        self.batting = BattingVideoClassifier(self.batting_spec)
-        self.bowling = BowlingPrototypeClassifier(self.bowling_spec)
+        self.batting: PoseActionClassifier = load_batting_classifier()
+        self.bowling: PoseActionClassifier = load_bowling_classifier()
 
     def model_cards(self) -> dict:
         return {
@@ -53,7 +54,7 @@ class AnalysisEngine:
                 "kind": "pose_estimation",
                 "classes": [],
                 "experimental": False,
-                "note": "33 2D landmarks with estimated depth. Used for metrics and the replay overlay.",
+                "note": "33 2D landmarks with estimated depth. Used for metrics, the replay overlay and both action classifiers.",
             },
         }
 
@@ -95,7 +96,7 @@ class AnalysisEngine:
             }
             status = "needs_better_clip"
         else:
-            classification = self._classify(video_path, mode, features)
+            classification = self._classify(mode, features)
             status = "complete"
         classification_ms = (time.perf_counter() - classification_started) * 1000
 
@@ -143,11 +144,10 @@ class AnalysisEngine:
             "privacy": "The uploaded clip was processed in a temporary directory and is not retained by the API.",
         }
 
-    def _classify(self, video_path: Path, mode: str, features: dict) -> dict:
-        if mode == "batting":
-            window = (int(features["action_start_frame"]), int(features["action_end_frame"]))
-            return self.batting.predict(video_path, action_window=window)
-        return self.bowling.predict(features)
+    def _classify(self, mode: str, features: dict) -> dict:
+        """Both models consume pose features, so no second pass over the video is needed."""
+        classifier = self.batting if mode == "batting" else self.bowling
+        return classifier.predict(features)
 
 
 def _warnings(classification: dict, quality, features: dict) -> list[str]:

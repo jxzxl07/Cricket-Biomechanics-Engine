@@ -31,13 +31,16 @@ COPY config.py .
 
 # Only the deployable artifacts; no raw video, no research code, no tests.
 COPY data/models/pose_landmarker_lite.task ./data/models/
-COPY data/models/batting_video.onnx ./data/models/
-COPY data/models/batting_video.json ./data/models/
-COPY data/models/bowling_prototype.json ./data/models/
+COPY data/models/batting_pose.onnx ./data/models/
+COPY data/models/batting_pose.json ./data/models/
+COPY data/models/bowling_pose.onnx ./data/models/
+COPY data/models/bowling_pose.json ./data/models/
 COPY data/models/MODEL_CARD.md ./data/models/
 
-# Verify the batting artifact against its spec checksum before the image is used.
-RUN python -c "from ml.model_spec import load_spec; print('batting sha256 ok:', load_spec('batting_video.json').verify_artifact()[:16])"
+# Verify every shipped artifact against its spec checksum before the image is used.
+RUN python -c "from ml.model_spec import load_spec; \
+    print('batting pose:', load_spec('batting_pose.json').verify_artifact()[:16]); \
+    print('bowling pose:', load_spec('bowling_pose.json').verify_artifact()[:16])"
 
 USER creaselab
 ENV PYTHONUNBUFFERED=1 \

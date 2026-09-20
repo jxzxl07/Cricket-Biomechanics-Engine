@@ -1,0 +1,205 @@
+{
+  "id": "pose-batting-logistic_regression-v1",
+  "version": "1.0.0",
+  "kind": "pose_feature_classifier",
+  "artifact": "batting_pose.onnx",
+  "sha256": "0a54734881ca3e263405abe1822049757977386b30b2f5ec780da016c3445c52",
+  "architecture": "logistic_regression over 12 MediaPipe pose features, exported to ONNX",
+  "input": {
+    "features": [
+      "peak_hand_speed",
+      "mean_hand_speed",
+      "peak_speed_timing",
+      "hand_horizontal_range",
+      "hand_vertical_range",
+      "hand_path_angle",
+      "final_hand_height",
+      "shoulder_rotation_range",
+      "max_knee_bend",
+      "head_drop",
+      "torso_lean_range",
+      "action_duration_seconds"
+    ],
+    "source": "vision.features (identical code path in training and serving)",
+    "imputation": "median (fitted during training, embedded in the ONNX graph)"
+  },
+  "classes": [
+    "cut",
+    "drive",
+    "flick",
+    "pull",
+    "reverse_sweep",
+    "scoop",
+    "sweep"
+  ],
+  "display_labels": {
+    "cut": "Cut",
+    "drive": "Drive",
+    "flick": "Flick",
+    "pull": "Pull",
+    "reverse_sweep": "Reverse sweep",
+    "scoop": "Scoop",
+    "sweep": "Sweep"
+  },
+  "experimental": true,
+  "confidence_cap": 0.6,
+  "unknown_threshold": 0.6,
+  "unknown_margin": 0.1,
+  "note": "Trained on this project's own clips. Small dataset, one athlete: it generalises to new sessions only as well as the measured number shows.",
+  "limitations": [
+    "Trained on 48 clips from 3 recording sessions of a single athlete.",
+    "Leave-one-session-out accuracy is 29% (rising to 42% on clips whose class appears in the training sessions).",
+    "Some classes only appear in one session, so a held-out session can contain classes the model never saw.",
+    "A random split of this dataset reports a much higher number; that figure is leakage and is not published as accuracy.",
+    "Not validated on other athletes, other cameras, or match conditions."
+  ],
+  "benchmark": {
+    "status": "measured",
+    "dataset": "This project's clips (48 clips, 3 sessions)",
+    "independent": false,
+    "scheme": "leave-one-recording-session-out",
+    "top1_accuracy": 0.2916666666666667,
+    "top1_accuracy_on_seen_classes": 0.42424242424242425,
+    "clips_on_seen_classes": 33,
+    "random_split_accuracy_for_reference": 0.6666666666666666,
+    "leakage_gap": 0.37499999999999994,
+    "per_class_recall": {
+      "cut": 0.5,
+      "drive": 0.4444444444444444,
+      "flick": 0.09090909090909091,
+      "pull": 0.0,
+      "reverse_sweep": 1.0,
+      "scoop": 0.0,
+      "sweep": 0.0
+    },
+    "folds": [
+      {
+        "held_out_session": "2026-06-27 09:00",
+        "held_out_clips": 23,
+        "accuracy": 0.391304347826087,
+        "classes_in_held_out_session": [
+          "cut",
+          "drive",
+          "flick",
+          "pull",
+          "reverse_sweep"
+        ],
+        "classes_absent_from_training": [
+          "pull"
+        ]
+      },
+      {
+        "held_out_session": "2026-06-27 09:30",
+        "held_out_clips": 11,
+        "accuracy": 0.09090909090909091,
+        "classes_in_held_out_session": [
+          "reverse_sweep",
+          "scoop",
+          "sweep"
+        ],
+        "classes_absent_from_training": [
+          "scoop",
+          "sweep"
+        ]
+      },
+      {
+        "held_out_session": "2026-06-27 11:00",
+        "held_out_clips": 14,
+        "accuracy": 0.2857142857142857,
+        "classes_in_held_out_session": [
+          "cut",
+          "drive",
+          "flick"
+        ],
+        "classes_absent_from_training": []
+      }
+    ],
+    "mean_confidence_correct": 0.7661695297753915,
+    "mean_confidence_incorrect": 0.6272983245102653,
+    "abstain_threshold": {
+      "threshold": 0.6,
+      "coverage": 0.646,
+      "accuracy": 0.419,
+      "curve": [
+        {
+          "threshold": 0.3,
+          "coverage": 1.0,
+          "accuracy": 0.292
+        },
+        {
+          "threshold": 0.35,
+          "coverage": 0.979,
+          "accuracy": 0.298
+        },
+        {
+          "threshold": 0.4,
+          "coverage": 0.938,
+          "accuracy": 0.311
+        },
+        {
+          "threshold": 0.45,
+          "coverage": 0.771,
+          "accuracy": 0.378
+        },
+        {
+          "threshold": 0.5,
+          "coverage": 0.75,
+          "accuracy": 0.389
+        },
+        {
+          "threshold": 0.55,
+          "coverage": 0.708,
+          "accuracy": 0.412
+        },
+        {
+          "threshold": 0.6,
+          "coverage": 0.646,
+          "accuracy": 0.419
+        },
+        {
+          "threshold": 0.65,
+          "coverage": 0.562,
+          "accuracy": 0.407
+        },
+        {
+          "threshold": 0.7,
+          "coverage": 0.438,
+          "accuracy": 0.429
+        },
+        {
+          "threshold": 0.75,
+          "coverage": 0.417,
+          "accuracy": 0.45
+        },
+        {
+          "threshold": 0.8,
+          "coverage": 0.312,
+          "accuracy": 0.4
+        },
+        {
+          "threshold": 0.85,
+          "coverage": 0.229,
+          "accuracy": 0.364
+        },
+        {
+          "threshold": 0.9,
+          "coverage": 0.083,
+          "accuracy": 0.25
+        }
+      ]
+    },
+    "candidates": {
+      "logistic_regression": 0.2916666666666667,
+      "random_forest": 0.22916666666666666,
+      "gradient_boosting": 0.25
+    },
+    "source": "data/evaluation/batting_pose_training_report.json",
+    "interpretation": "Grouped by recording session. Treat this as the honest ceiling for a single-athlete dataset of this size, not as general shot-recognition accuracy."
+  },
+  "provenance": {
+    "trained_by": "research/training/train_action_model.py",
+    "trained_at": "2026-09-20T13:56:49+00:00",
+    "data": "data/landmarks (gitignored personal footage)",
+    "weights_license": "Trained here; no third-party weights"
+  }
+}

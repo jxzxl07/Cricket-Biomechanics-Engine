@@ -24,11 +24,12 @@ always match the current build.
 - Choose **batting** or **bowling**, record a clip in the browser, or upload one.
 - The replay of the original clip is the centrepiece: pose overlay, slow motion
   (0.25×/0.5×/1×), frame stepping, phase markers, and seekable metric cards.
-- Batting: 10 shot classes from a temporal video model, **clearly marked
+- Batting: seven shot classes from a trained pose model, **clearly marked
   experimental** (see below), plus hand-speed timing, shoulder rotation, knee
   flexion, head movement and finish position.
-- Bowling: broad pace/spin family with detected bowling arm, release height and
-  reach, shoulder rotation, torso lean, and neutral elbow-angle statistics.
+- Bowling: six action classes (left/right-arm pace, off spin, leg spin) from a
+  trained pose model, with detected bowling arm, release height and reach,
+  shoulder rotation, torso lean, and neutral elbow-angle statistics.
 - A capture-quality gate that refuses to label poor footage and explains how to
   re-record.
 - Evidence-grounded coaching: deterministic by default, optionally enhanced by
@@ -38,39 +39,44 @@ always match the current build.
 
 ## Honest about the models
 
-The batting model (`data/models/batting_video.onnx`) is an EfficientNetB0 + GRU
-classifier published by
-[RITIK-12/CricketShotClassification](https://github.com/RITIK-12/CricketShotClassification)
-(MIT). Its authors report 94% test accuracy on broadcast footage. We could not
-reproduce anything like that on phone-recorded practice clips:
+Both production models are **trained in this repository on this project's own
+clips**, and both are evaluated the only way that is meaningful for footage
+recorded in a handful of sessions: **leave-one-recording-session-out**.
 
-| Metric (this project's own 44 phone clips) | Value |
-| --- | --- |
-| Top-1 accuracy | 29.6% (chance 10%) |
-| Top-2 accuracy | 52.3% |
-| Macro F1 | 0.07 |
-| Session-grouped majority accuracy | 25% |
-| Mean confidence when wrong | 0.93 (i.e. *not calibrated*) |
+| | Batting | Bowling |
+| --- | --- | --- |
+| Classes | cut, drive, flick, pull, sweep, reverse sweep, scoop | left/right-arm pace, off spin, leg spin |
+| Honest accuracy | **29.2%** | **56.5%** |
+| On classes present in training | 42.4% | 72.2% |
+| Random-split accuracy (leakage, reference only) | 66.7% | 75.7% |
+| Training data | 48 clips, 3 sessions | 46 clips, 2 sessions |
+| Displayed confidence cap | 0.60 | 0.75 |
 
-Two causes were found and documented:
+Why the numbers look modest, and why they are still the ones to trust:
 
-1. The upstream demo feeds 0–1 frames into a graph that rescales by 1/255 —
-   a preprocessing bug. Correcting it raises our measured top-1 from 15.9% to
-   29.6% (`research/evaluation/batting_preprocessing_probe.py`).
-2. Broadcast-trained weights simply do not transfer to indoor phone footage.
-   Pose-guided cropping, action-window sampling and flip averaging were all
-   tested and did not help (`research/evaluation/batting_domain_probe.py`).
+* Clips from one session are near-duplicates. A random split puts near-identical
+  footage on both sides and reports ~65–75% — that is the figure the earlier
+  Random Forest baseline advertised (74.8% CV / 85.7% holdout). It is leakage.
+* Some classes were only recorded in one session (scoop and sweep), so when that
+  session is held out no model can predict them. The raw figure counts them; the
+  "classes present in training" figure does not. Both are published.
+* 48 and 46 clips are far too few for general shot recognition. These models are
+  a measured baseline for one athlete and one camera setup, and they are labelled
+  experimental in the API and the UI.
 
-Because of this, batting labels ship as an **experimental hint**: the displayed
-score is capped, the measured benchmark is shown next to every result, and the
-label becomes `unknown` when the model is not confident. The pose measurements,
-phases, replay and coaching do not depend on that label.
+**The published broadcast video model is no longer used.** It scored 29.6% top-1
+on these clips (chance 10%), collapsed onto `straight_drive` for 37 of 44 clips,
+and was *more* confident when wrong. Two causes were found: an upstream
+preprocessing bug (the graph expects 0–255 input, their demo feeds 0–1) and a
+genuine domain mismatch that pose-guided cropping, action-window sampling and
+flip averaging could not fix. It is kept in the repository for comparison and
+benchmarked by `research/evaluation/batting_benchmark.py`, but the API does not
+load it.
 
-Bowling has no trained model at all. Until a licensed bowling video model passes
-evaluation, a transparent pose heuristic reports broad pace/spin with capped,
-always-experimental confidence — and never claims a fine-grained spin type.
-
-The full write-up, checksums and upgrade path live in
+Pose features replaced pixel features because they normalise away framing,
+background and camera differences — exactly what broke the video model — and
+because they improve when more data is added, while frozen broadcast weights
+cannot. The full write-up, checksums, per-class recall and upgrade path live in
 [`data/models/MODEL_CARD.md`](data/models/MODEL_CARD.md).
 
 ## Architecture
@@ -95,7 +101,9 @@ Browser (React + Vite)                     FastAPI service (Docker, Render)
   preprocessing, benchmark).
 - `vision/` — MediaPipe pose extraction, biomechanics maths, feature derivation,
   capture-quality gate.
-- `research/` — evaluation harnesses and tooling. **Never imported by production.**
+- `research/` — evaluation, training and dataset tooling. **Never imported by
+  production.** `research/training/` builds the labelled feature tables, trains
+  both models and publishes their specs.
 - `frontend/` — React + TypeScript + Vite single-page app.
 - `data/models/` — deployable artifacts and their model cards (only these are
   committed; all personal footage is gitignored).
@@ -190,16 +198,35 @@ bowling contract, mobile stickiness/overflow, and console/network cleanliness.
 Fixtures are derived from local footage at run time; the only committed fixture
 is a synthetic clip with no person in it.
 
-### Benchmark the batting model
+### Retrain the models
+
+```bash
+pip install -r requirements-research.txt
+
+python -m research.training.pose_dataset                       # labelled feature tables
+python -m research.training.train_action_model --mode batting  # grouped CV + ONNX export
+python -m research.training.train_action_model --mode bowling
+python -m research.training.publish_pose_model --mode batting  # write the shipped spec
+python -m research.training.publish_pose_model --mode bowling
+```
+
+Training prints the leave-one-session-out score next to the leakage-inflated
+random-split score so the difference is always visible. Adding data is the way to
+improve the models:
+
+```bash
+python -m research.training.ingest_dataset --source /path/to/<class>/<clip> --mode bowling
+```
+
+### Benchmark the retired broadcast model
 
 ```bash
 python -m research.evaluation.batting_benchmark
 python -m research.evaluation.publish_benchmark
 ```
 
-The first writes `data/evaluation/revamp_batting_benchmark.{json,md}`; the second
-copies the measured numbers into the shipped model spec so the API always serves
-generated figures.
+Writes `data/evaluation/revamp_batting_benchmark.{json,md}` — the evidence behind
+retiring the video model.
 
 ## Deploying to Render
 
