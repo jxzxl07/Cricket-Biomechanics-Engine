@@ -1,4 +1,4 @@
-# CreaseLab — cricket movement intelligence
+# CreaseLab — ML Engine
 
 Record a batting shot or a bowling action. CreaseLab classifies the movement,
 maps its key phases, measures pose-derived biomechanics, and turns the result
