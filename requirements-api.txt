@@ -1,9 +1,31 @@
-fastapi
-uvicorn[standard]
-python-multipart
-opencv-python-headless
-mediapipe
-matplotlib
-scikit-learn
-joblib
-numpy
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+python-multipart==0.0.20
+
+# OpenCV headless keeps libGL out of the image. MediaPipe's own dependency list
+# pulls opencv-contrib-python, jax, jaxlib and matplotlib (about 1 GB), so the
+# Dockerfile installs mediapipe with --no-deps and the four packages below cover
+# what Pose Landmarker actually imports at runtime.
+opencv-python-headless==4.10.0.84
+numpy==1.26.4
+protobuf==4.25.9
+absl-py==2.5.0
+attrs==26.1.0
+flatbuffers==25.12.19
+# mediapipe/__init__.py imports its drawing utils, which import matplotlib.
+matplotlib==3.11.1
+
+onnxruntime==1.20.1
+openai==1.76.0
+pydantic==2.11.4
+
+# MediaPipe is installed separately with --no-deps, because declaring it here
+# makes pip resolve its dependency on opencv-contrib-python (which needs libGL
+# and fights the headless build), plus jax, jaxlib and matplotlib.
+#
+#   pip install -r requirements-api.txt
+#   pip install --no-deps mediapipe==0.10.21
+#
+# The Dockerfile does exactly this. MEDIAPIPE_VERSION is pinned so the two steps
+# cannot drift.
+# mediapipe==0.10.21

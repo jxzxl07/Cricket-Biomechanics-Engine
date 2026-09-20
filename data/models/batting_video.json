@@ -1,0 +1,126 @@
+{
+  "id": "efficientnetb0-gru-cricshot10-v1",
+  "version": "1.0.0",
+  "kind": "video_neural_network",
+  "artifact": "batting_video.onnx",
+  "sha256": "102fb0b9e4402bef4adb192347974fbd66fb67113f9471b2fa1d14969c9051e4",
+  "architecture": "EfficientNetB0 (ImageNet weights, frozen) wrapped in TimeDistributed, two GRU layers (256 then 128), Dense(1024) + softmax(10)",
+  "input": {
+    "frames": 30,
+    "height": 224,
+    "width": 224,
+    "channels": "RGB",
+    "value_range": [
+      0,
+      255
+    ],
+    "frame_selection": "uniform over the detected action window when available, otherwise uniform over the clip",
+    "resize": "bilinear resize preserving aspect ratio, centred zero padding",
+    "note": "The graph starts with Rescaling(1/255) and ImageNet normalisation, so 0-255 input is required. The upstream Streamlit demo fed 0-1 frames, which is a preprocessing bug in that demo."
+  },
+  "classes": [
+    "cover_drive",
+    "defence",
+    "flick",
+    "hook",
+    "late_cut",
+    "lofted_shot",
+    "pull",
+    "square_cut",
+    "straight_drive",
+    "sweep"
+  ],
+  "display_labels": {
+    "cover_drive": "Cover drive",
+    "defence": "Defence",
+    "flick": "Flick",
+    "hook": "Hook",
+    "late_cut": "Late cut",
+    "lofted_shot": "Lofted shot",
+    "pull": "Pull",
+    "square_cut": "Square cut",
+    "straight_drive": "Straight drive",
+    "sweep": "Sweep"
+  },
+  "experimental": true,
+  "confidence_cap": 0.65,
+  "unknown_threshold": 0.55,
+  "unknown_margin": 0.12,
+  "note": "Experimental shot hint. The model was trained on broadcast cricket footage and is unreliable on phone-recorded practice clips. Read the measured benchmark before trusting any label.",
+  "limitations": [
+    "Trained on broadcast footage: tight framing, match context, and a fixed camera.",
+    "On this project's 44 labelled phone clips it reached 34% top-1 and 57% top-2, and predicted straight_drive for most clips.",
+    "Confidence is not calibrated: mean confidence was higher for wrong predictions than for right ones.",
+    "Unsupported shots such as reverse sweep and scoop are forced into one of the ten classes.",
+    "Not a substitute for a coach's judgement."
+  ],
+  "benchmark": {
+    "status": "measured",
+    "dataset": "This project's historical phone clips (single athlete, two recording sessions)",
+    "independent": false,
+    "clips": 44,
+    "unsupported_clips_excluded": 10,
+    "top1_accuracy": 0.2955,
+    "top2_accuracy": 0.5227,
+    "macro_f1": 0.0733,
+    "chance_top1": 0.1,
+    "mean_confidence_correct": 0.993,
+    "mean_confidence_incorrect": 0.932,
+    "prediction_distribution": {
+      "straight_drive": 37,
+      "flick": 5,
+      "lofted_shot": 2
+    },
+    "session_grouped_accuracy": 0.25,
+    "selective_accuracy": [
+      {
+        "threshold": 0.5,
+        "coverage": 1.0,
+        "accuracy": 0.295,
+        "retained": 44
+      },
+      {
+        "threshold": 0.6,
+        "coverage": 0.977,
+        "accuracy": 0.302,
+        "retained": 43
+      },
+      {
+        "threshold": 0.7,
+        "coverage": 0.909,
+        "accuracy": 0.325,
+        "retained": 40
+      },
+      {
+        "threshold": 0.8,
+        "coverage": 0.886,
+        "accuracy": 0.333,
+        "retained": 39
+      },
+      {
+        "threshold": 0.9,
+        "coverage": 0.864,
+        "accuracy": 0.342,
+        "retained": 38
+      },
+      {
+        "threshold": 0.95,
+        "coverage": 0.818,
+        "accuracy": 0.361,
+        "retained": 36
+      }
+    ],
+    "mean_latency_seconds": 0.53,
+    "source": "data/evaluation/revamp_batting_benchmark.json",
+    "interpretation": "Broadcast-trained weights do not transfer to indoor phone clips. The model is deployed only as an explicitly experimental hint; it is not used for coaching claims."
+  },
+  "provenance": {
+    "source_repository": "https://github.com/RITIK-12/CricketShotClassification",
+    "source_file": "model_weights.h5",
+    "code_license": "MIT",
+    "weights_license": "Published under the source repository's MIT license",
+    "training_data": "Announced as sourced from CricShotClassify (Sen et al., Sensors 2021); dataset redistribution and commercial-use terms are unverified",
+    "conversion": "Keras HDF5 to ONNX, validated against a reconstructed TensorFlow graph (max absolute output difference 1.06e-9). Unused initializer removed; outputs verified bit-identical.",
+    "commercial_use": "Not cleared. Treat as a research/demo baseline until the dataset terms are reviewed."
+  }
+}

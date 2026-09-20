@@ -1,13 +1,23 @@
 .venv/
+venv/
 __pycache__/
 *.pyc
-.git/
 .pytest_cache/
-gui/
-main.py
+.git/
+.github/
+.DS_Store
+
+# Research-only tooling is not part of the runtime image.
+research/
 tests/
+frontend/
+
+# Personal footage and derived data never enter an image.
 data/raw/
 data/landmarks/
 data/processed/
 data/evaluation/
-requirements-desktop.txt
+*.sqlite3
+
+# Legacy artifacts, kept out even if present locally.
+*.joblib
