@@ -167,6 +167,23 @@ npm run dev          # http://localhost:5173, calls the API at VITE_API_BASE_URL
 Set `VITE_API_BASE_URL` to point at another API instance if needed
 (`frontend/.env`).
 
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request:
+
+- **Backend tests** — installs `requirements-api.txt` plus MediaPipe with
+  `--no-deps` (the same way the Dockerfile does), verifies both model artifacts
+  against their spec checksums, then runs `pytest`. Real-footage tests skip
+  because `data/raw` is gitignored, so CI is green without personal clips.
+- **Frontend build** — `npm ci` and `npm run build` (type-check included).
+- **Container build** — builds the Docker image without pushing, which is what
+  catches packaging mistakes such as a missing system library or a dependency
+  that MediaPipe drags in.
+
+There is deliberately **no deploy step and no cloud credentials** in CI: Render
+deploys from `render.yaml` on push. If you want Render to wait for these checks,
+turn on *Auto-Deploy → After CI Checks Pass* for the service in the dashboard.
+
 ### Tests
 
 ```bash
