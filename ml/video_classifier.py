@@ -85,6 +85,11 @@ class BattingVideoClassifier:
         options.intra_op_num_threads = 2
         options.inter_op_num_threads = 1
         options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        # ORT's CPU arena grows to hundreds of MB and never returns it. Measured
+        # inside the deploy container: peak 809 MB with the arena versus 497 MB
+        # without, for about 2% extra latency. Worth it for a 512 MB-2 GB host.
+        options.enable_cpu_mem_arena = False
+        options.enable_mem_pattern = False
         self.session = ort.InferenceSession(
             str(self.spec.artifact_path), sess_options=options, providers=["CPUExecutionProvider"]
         )

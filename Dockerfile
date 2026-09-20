@@ -14,7 +14,8 @@ FROM base AS build
 
 WORKDIR /app
 COPY requirements-api.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements-api.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements-api.txt \
+    && pip install --no-cache-dir --prefix=/install --no-deps mediapipe==0.10.21
 
 FROM base AS runtime
 

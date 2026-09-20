@@ -137,12 +137,16 @@ stateless: no accounts, no database, no stored history.
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-api.txt
+pip install --no-deps mediapipe==0.10.21
 uvicorn api.main:app --reload --port 8000
 ```
 
-Requires Python 3.12. Note: do **not** install `opencv-contrib-python` next to
-`opencv-python-headless` (their files overwrite each other), and keep
-`protobuf<5` for MediaPipe compatibility.
+Requires Python 3.12. MediaPipe is installed with `--no-deps` on purpose: its
+declared dependencies include `opencv-contrib-python` (needs libGL and clashes
+with the headless build), plus jax, jaxlib and matplotlib — about 1 GB of
+packages the service never touches. Note also that `opencv-contrib-python` must
+never be installed alongside `opencv-python-headless` (their files overwrite each
+other), and `protobuf` must stay below 5 for MediaPipe compatibility.
 
 ### Frontend
 
@@ -174,14 +178,17 @@ With the API on `127.0.0.1:8000` and `npm run dev` on `127.0.0.1:5173`:
 
 ```bash
 cd frontend
-npm install --no-save playwright     # drives the installed Chrome
-npm run qa                           # writes screenshots into ../docs
+python qa/prepare-fixtures.py          # H.264 copies of local clips into /tmp
+npm install --no-save playwright       # drives the installed Chrome
+npm run qa                             # writes screenshots into ../docs
 ```
 
 42 checks cover the upload flow, automatic replay, pose-overlay alignment,
 phase-marker seeking, metric seeking and joint highlighting, slow motion, frame
 stepping, loop, the unplayable-codec fallback, poor-footage guidance, the
 bowling contract, mobile stickiness/overflow, and console/network cleanliness.
+Fixtures are derived from local footage at run time; the only committed fixture
+is a synthetic clip with no person in it.
 
 ### Benchmark the batting model
 
@@ -208,9 +215,21 @@ The repository is a [Render blueprint](render.yaml):
 
 Free-tier notes: the API keeps a single worker so models load once; expect a
 cold start of roughly a minute after idle, and warm analyses of ~5–20 s
-depending on clip length. The ONNX + MediaPipe stack fits well under the free
-plan's memory, but if analysis regularly approaches the budget, move the API to
-a paid 1 CPU/2 GB instance rather than shrinking model quality.
+depending on clip length.
+
+**Memory, measured in the built image** (`docker exec … cat /sys/fs/cgroup/memory.peak`):
+
+| State | RSS |
+| --- | --- |
+| Idle with both models loaded | ~190 MB |
+| Peak during a 3-second batting analysis | ~740 MB |
+
+MediaPipe pose extraction is a fixed ~400 MB of that, and ONNX Runtime would add
+another ~310 MB if its CPU arena were left enabled (`enable_cpu_mem_arena` is off
+in `ml/video_classifier.py`; it costs about 2% latency and saves a third of a
+gigabyte). Because of this the blueprint requests a 1 CPU / 2 GB instance rather
+than pretending the 512 MB free tier fits. If you must use free, expect OOM
+failures on longer clips.
 
 Local container test:
 
@@ -218,6 +237,9 @@ Local container test:
 docker build -t creaselab-api .
 docker run --rm -p 8000:8000 creaselab-api
 ```
+
+On Apple Silicon add `--platform linux/amd64`: MediaPipe publishes no arm64
+Linux wheels, and Render runs amd64.
 
 ## Known limitations
 

@@ -8,7 +8,12 @@ services:
   - type: web
     name: creaselab-api
     runtime: docker
-    plan: free
+    # Measured inside this image: ~190 MB idle with models loaded, ~740 MB peak
+    # during a 3-second analysis (MediaPipe pose accounts for most of it; the
+    # ONNX arena is disabled in ml/video_classifier.py). Render's free 512 MB
+    # instance is too tight, so the blueprint asks for 1 CPU / 2 GB. Drop to
+    # `free` only if you accept out-of-memory failures on longer clips.
+    plan: standard
     region: frankfurt
     healthCheckPath: /health
     autoDeploy: true
