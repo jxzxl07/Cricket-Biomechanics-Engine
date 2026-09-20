@@ -21,6 +21,8 @@ data/*.sqlite3
 data/models/*
 !data/models/pose_landmarker_lite.task
 !data/models/batting_video.onnx
+!data/models/batting_video.json
+!data/models/bowling_prototype.json
 !data/models/MODEL_CARD.md
 
 # Web build output and local configuration

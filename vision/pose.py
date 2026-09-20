@@ -1,4 +1,12 @@
+"""MediaPipe pose extraction for uploaded clips.
+
+Pose data is the shared source of truth for metrics, the replay overlay, phase
+timestamps and the capture-quality gate. Extraction is bounded so a long clip
+cannot exhaust the request budget.
+"""
+
 import json
+import math
 import time
 from pathlib import Path
 
@@ -7,10 +15,14 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-from config import DATA_DIR, FPS
+from config import DATA_DIR, FPS, MODELS_DIR
 
+MODEL_PATH = str(MODELS_DIR / "pose_landmarker_lite.task")
 
-MODEL_PATH = str(DATA_DIR / "models" / "pose_landmarker_lite.task")
+# Two poses lets the quality gate notice a second athlete in frame.
+NUM_POSES = 2
+# Upper bound on analysed frames so a 12s 60fps clip cannot blow the request budget.
+MAX_ANALYSED_FRAMES = 240
 
 POSE_LANDMARK_NAMES = [
     "nose",
@@ -98,20 +110,19 @@ def build_landmarks_path(clip_path):
 
 
 class PoseEstimator:
-    def __init__(self):
+    def __init__(self, num_poses: int = NUM_POSES):
         base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
 
         options = vision.PoseLandmarkerOptions(
             base_options=base_options,
             running_mode=vision.RunningMode.VIDEO,
-            num_poses=1,
+            num_poses=num_poses,
             min_pose_detection_confidence=0.5,
             min_pose_presence_confidence=0.5,
             min_tracking_confidence=0.5,
         )
 
         self.landmarker = vision.PoseLandmarker.create_from_options(options)
-        self.start_time = time.monotonic()
         self.last_timestamp_ms = 0
 
     def detect_landmarks(self, frame, timestamp_ms):
@@ -128,49 +139,20 @@ class PoseEstimator:
         result = self.landmarker.detect_for_video(mp_image, timestamp_ms)
         return result.pose_landmarks
 
-    def process_frame(self, frame):
-        timestamp_ms = int((time.monotonic() - self.start_time) * 1000)
-        pose_landmarks = self.detect_landmarks(frame, timestamp_ms)
-
-        output_frame = frame.copy()
-
-        if pose_landmarks:
-            self.draw_pose(output_frame, pose_landmarks[0])
-
-        return output_frame, pose_landmarks
-
-    def draw_pose(self, frame, landmarks):
-        height, width, _ = frame.shape
-        points = []
-
-        for landmark in landmarks:
-            x = int(landmark.x * width)
-            y = int(landmark.y * height)
-            visibility = getattr(landmark, "visibility", 1.0)
-            points.append((x, y, visibility))
-
-        for start_index, end_index in POSE_CONNECTIONS:
-            start_x, start_y, start_visibility = points[start_index]
-            end_x, end_y, end_visibility = points[end_index]
-
-            if start_visibility > 0.4 and end_visibility > 0.4:
-                cv2.line(
-                    frame,
-                    (start_x, start_y),
-                    (end_x, end_y),
-                    (45, 220, 170),
-                    2,
-                )
-
-        for x, y, visibility in points:
-            if visibility > 0.4:
-                cv2.circle(frame, (x, y), 4, (255, 255, 255), -1)
-
     def close(self):
         self.landmarker.close()
 
 
-def extract_landmarks_from_video(clip_path, mode, label=None, output_path=None):
+def _frame_step(total_frames: int, max_frames: int = MAX_ANALYSED_FRAMES) -> int:
+    return max(1, math.ceil(total_frames / max_frames))
+
+
+def extract_landmarks_from_video(clip_path, mode, label=None, output_path=None, deadline=None, max_frames=MAX_ANALYSED_FRAMES):
+    """Extract pose landmarks for every ``frame_step``-th frame of a clip.
+
+    ``deadline`` is a ``time.monotonic()`` value. When it passes, extraction
+    raises ``TimeoutError`` so the API can answer instead of hanging.
+    """
     clip_path = Path(clip_path)
 
     if output_path is None:
@@ -191,20 +173,33 @@ def extract_landmarks_from_video(clip_path, mode, label=None, output_path=None):
 
     frame_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    decoded_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    step = _frame_step(decoded_frames) if decoded_frames > 0 else 1
 
     pose_estimator = PoseEstimator()
     frames = []
-    frame_index = 0
+    max_poses_seen = 0
 
     try:
         while True:
+            if deadline is not None and time.monotonic() > deadline:
+                raise TimeoutError("Pose extraction exceeded the processing budget")
             success, frame = capture.read()
 
             if not success:
                 break
 
+            frame_index = len(frames) * step
+            # Skip the frames between samples without decoding them one by one.
+            if step > 1:
+                for _ in range(step - 1):
+                    if not capture.grab():
+                        break
+
             timestamp_ms = int((frame_index / clip_fps) * 1000)
             pose_landmarks = pose_estimator.detect_landmarks(frame, timestamp_ms)
+
+            max_poses_seen = max(max_poses_seen, len(pose_landmarks))
 
             if pose_landmarks:
                 landmarks = [
@@ -219,11 +214,12 @@ def extract_landmarks_from_video(clip_path, mode, label=None, output_path=None):
                     "frame_index": frame_index,
                     "timestamp_ms": timestamp_ms,
                     "person_detected": bool(pose_landmarks),
+                    "pose_count": len(pose_landmarks),
                     "landmarks": landmarks,
                 }
             )
-
-            frame_index += 1
+            if len(frames) >= max_frames:
+                break
 
     finally:
         capture.release()
@@ -234,9 +230,13 @@ def extract_landmarks_from_video(clip_path, mode, label=None, output_path=None):
         "mode": mode,
         "label": label,
         "fps": clip_fps,
+        "analysis_fps": clip_fps / step,
+        "analysis_frame_step": step,
         "frame_width": frame_width,
         "frame_height": frame_height,
-        "total_frames": frame_index,
+        "total_frames": decoded_frames if decoded_frames > 0 else len(frames) * step,
+        "analysed_frames": len(frames),
+        "max_poses_seen": max_poses_seen,
         "landmark_format": "mediapipe_pose_33",
         "frames": frames,
     }

@@ -1,2 +1,0 @@
--r requirements-api.txt
-PyQt6

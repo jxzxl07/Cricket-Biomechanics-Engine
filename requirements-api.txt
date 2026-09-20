@@ -3,6 +3,7 @@ uvicorn[standard]==0.34.2
 python-multipart==0.0.20
 opencv-python-headless==4.10.0.84
 mediapipe==0.10.21
+protobuf==4.25.9
 numpy==1.26.4
 onnxruntime==1.20.1
 openai==1.76.0

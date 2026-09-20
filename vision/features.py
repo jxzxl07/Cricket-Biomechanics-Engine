@@ -16,6 +16,8 @@ from vision.biomechanics import (
     get_landmark,
     get_landmark_series,
     get_shoulder_line_angles,
+    get_stable_shoulder_width,
+    get_stable_torso_length,
     get_torso_lean,
     index_of_max,
     normalise_distance,
@@ -23,6 +25,7 @@ from vision.biomechanics import (
     safe_max,
     safe_mean,
     safe_min,
+    smooth_points,
 )
 
 MIN_DETECTED_POSE_FRAMES = 5
@@ -37,6 +40,11 @@ MIN_BATTING_HAND_PATH_RANGE = 0.12
 def load_landmark_json(json_path):
     with open(json_path, "r", encoding="utf-8") as file:
         return json.load(file)
+
+
+def analysis_fps(data):
+    """Frame rate of the analysed frames, accounting for any frame stride."""
+    return float(data.get("analysis_fps") or data.get("fps") or 30)
 
 
 def get_person_detection_summary(data):
@@ -105,16 +113,34 @@ def _no_person(data):
     }
 
 
+def _threshold_crossing_frame(speeds, peak, ratio=0.4, before=None):
+    """First frame index where the signal crosses ``ratio`` of its peak.
+
+    Used to place the start of the accelerating phase (downswing or delivery
+    stride) inside the detected action window.
+    """
+    if peak is None or peak <= 0:
+        return None
+    limit = len(speeds) if before is None else min(before, len(speeds))
+    for index in range(limit):
+        value = speeds[index]
+        if value is not None and value >= peak * ratio:
+            return index
+    return None
+
+
 def extract_bowling_features_from_data(data):
     summary, frames = get_person_detection_summary(data), _clean(data)
     if not summary["has_enough_person"] or len(frames) < 5:
         return _no_person(data)
 
-    fps = float(data.get("fps") or 30)
+    fps = analysis_fps(data)
+    torso_scale = get_stable_torso_length(frames)
+    shoulder_scale = get_stable_shoulder_width(frames)
     arm = detect_bowling_arm(frames)
     names = get_arm_landmark_names(arm)
-    points = get_landmark_series(frames, names["wrist"], should_mirror=arm == "left")
-    speeds = calculate_speed_series(frames, points, fps)
+    points = smooth_points(get_landmark_series(frames, names["wrist"], should_mirror=arm == "left"))
+    speeds = calculate_speed_series(frames, points, fps, normaliser=torso_scale)
     start, end = detect_action_window(speeds)
     action_frames, action_points, action_speeds = frames[start : end + 1], points[start : end + 1], speeds[start : end + 1]
     release = index_of_max(action_speeds)
@@ -124,15 +150,16 @@ def extract_bowling_features_from_data(data):
     elbow = get_landmark(release_frame, names["elbow"])
     hips = _mid_hips(release_frame)
 
-    vertical_range = normalise_distance(_point_range(action_points, "y"), release_frame)
-    horizontal_range = normalise_distance(_point_range(action_points, "x"), release_frame, scale="shoulder")
-    release_height = normalise_distance(abs(hips["y"] - release_wrist["y"]), release_frame) if hips and release_wrist else None
-    forward_reach = normalise_distance(abs(shoulder["x"] - release_wrist["x"]), release_frame, scale="shoulder") if shoulder and release_wrist else None
+    vertical_range = normalise_distance(_point_range(action_points, "y"), release_frame, fallback=torso_scale)
+    horizontal_range = normalise_distance(_point_range(action_points, "x"), release_frame, scale="shoulder", fallback=shoulder_scale)
+    release_height = normalise_distance(abs(hips["y"] - release_wrist["y"]), release_frame, fallback=torso_scale) if hips and release_wrist else None
+    forward_reach = normalise_distance(abs(shoulder["x"] - release_wrist["x"]), release_frame, scale="shoulder", fallback=shoulder_scale) if shoulder and release_wrist else None
     peak_speed = safe_max(action_speeds)
     duration = end - start + 1
     movement_range = safe_max([vertical_range, horizontal_range])
     detected = bool(peak_speed is not None and peak_speed >= MIN_BOWLING_PEAK_WRIST_SPEED and movement_range is not None and movement_range >= MIN_BOWLING_ARM_PATH_RANGE and duration >= MIN_ACTION_DURATION_FRAMES)
     pre, post = max(0, release - 8), min(len(action_points) - 1, release + 8)
+    stride = _threshold_crossing_frame(action_speeds, peak_speed, before=release)
 
     return {
         "peak_wrist_speed": peak_speed,
@@ -152,6 +179,7 @@ def extract_bowling_features_from_data(data):
         "action_start_frame": action_frames[0]["frame_index"],
         "action_end_frame": action_frames[-1]["frame_index"],
         "release_frame": action_frames[release]["frame_index"],
+        "delivery_stride_frame": action_frames[stride]["frame_index"] if stride is not None else action_frames[0]["frame_index"],
         "action_detected": detected,
         "action_status": "Bowling action detected" if detected else "No clear bowling action detected",
         "classification_block_reason": None if detected else "no_action",
@@ -180,28 +208,31 @@ def extract_batting_features_from_data(data):
     if not summary["has_enough_person"] or len(frames) < 5:
         return _no_person(data)
 
-    fps = float(data.get("fps") or 30)
-    hands = _hand_midpoints(frames)
-    speeds = calculate_speed_series(frames, hands, fps)
+    fps = analysis_fps(data)
+    torso_scale = get_stable_torso_length(frames)
+    shoulder_scale = get_stable_shoulder_width(frames)
+    hands = smooth_points(_hand_midpoints(frames))
+    speeds = calculate_speed_series(frames, hands, fps, normaliser=torso_scale)
     start, end = detect_action_window(speeds)
     action_frames, action_hands, action_speeds = frames[start : end + 1], hands[start : end + 1], speeds[start : end + 1]
     peak = index_of_max(action_speeds)
     peak_speed = safe_max(action_speeds)
     duration = end - start + 1
-    horizontal_range = normalise_distance(_point_range(action_hands, "x"), action_frames[0], scale="shoulder")
-    vertical_range = normalise_distance(_point_range(action_hands, "y"), action_frames[0])
+    horizontal_range = normalise_distance(_point_range(action_hands, "x"), action_frames[0], scale="shoulder", fallback=shoulder_scale)
+    vertical_range = normalise_distance(_point_range(action_hands, "y"), action_frames[0], fallback=torso_scale)
     start_hand, end_hand = _first(action_hands), _last(action_hands)
     final_hips = _mid_hips(action_frames[-1])
-    final_height = normalise_distance(final_hips["y"] - end_hand["y"], action_frames[-1]) if final_hips and end_hand else None
+    final_height = normalise_distance(final_hips["y"] - end_hand["y"], action_frames[-1], fallback=torso_scale) if final_hips and end_hand else None
     heads = [get_landmark(frame, "nose") for frame in action_frames]
     start_head = _first(heads)
     low_head = max((point for point in heads if point is not None), key=lambda point: point["y"], default=None)
-    head_drop = normalise_distance(low_head["y"] - start_head["y"], action_frames[0]) if start_head and low_head else None
+    head_drop = normalise_distance(low_head["y"] - start_head["y"], action_frames[0], fallback=torso_scale) if start_head and low_head else None
     torso = [get_torso_lean(frame) for frame in action_frames]
     torso_min, torso_max = safe_min(torso), safe_max(torso)
     knees = [value for frame in action_frames for value in (_knee_bend(frame, "left"), _knee_bend(frame, "right")) if value is not None]
     movement_range = safe_max([horizontal_range, vertical_range])
     detected = bool(peak_speed is not None and peak_speed >= MIN_BATTING_PEAK_HAND_SPEED and movement_range is not None and movement_range >= MIN_BATTING_HAND_PATH_RANGE and duration >= MIN_ACTION_DURATION_FRAMES)
+    downswing = _threshold_crossing_frame(action_speeds, peak_speed, before=peak)
 
     return {
         "peak_hand_speed": peak_speed,
@@ -220,6 +251,7 @@ def extract_batting_features_from_data(data):
         "action_start_frame": action_frames[0]["frame_index"],
         "action_end_frame": action_frames[-1]["frame_index"],
         "peak_speed_frame": action_frames[peak]["frame_index"] if peak is not None else None,
+        "downswing_start_frame": action_frames[downswing]["frame_index"] if downswing is not None else action_frames[0]["frame_index"],
         "action_detected": detected,
         "action_status": "Batting shot detected" if detected else "No clear batting shot detected",
         "classification_block_reason": None if detected else "no_action",

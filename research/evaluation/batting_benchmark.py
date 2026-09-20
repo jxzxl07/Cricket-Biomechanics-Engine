@@ -30,7 +30,13 @@ from pathlib import Path
 import numpy as np
 
 from config import DATA_DIR
-from ml.video_classifier import BATTING_CLASSES, BattingVideoClassifier, sample_video_frames
+from ml.video_classifier import BattingVideoClassifier
+from vision.features import extract_batting_features_from_data, load_landmark_json
+
+BATTING_CLASSES = [
+    "cover_drive", "defence", "flick", "hook", "late_cut",
+    "lofted_shot", "pull", "square_cut", "straight_drive", "sweep",
+]
 
 # Stored folder label -> set of model classes considered correct.
 COMPATIBLE_LABELS: dict[str, set[str]] = {
@@ -62,6 +68,7 @@ class ClipResult:
     in_top2: bool = False
     session: str = ""
     latency_seconds: float = 0.0
+    window: tuple[int, int] | None = None
 
 
 def discover_clips(root: Path) -> list[tuple[Path, str]]:
@@ -88,12 +95,12 @@ def evaluate(clips: list[tuple[Path, str]], classifier: BattingVideoClassifier) 
 
     results: list[ClipResult] = []
     for index, (path, stored_label) in enumerate(clips, start=1):
+        window = action_window_for(path, stored_label)
         started = time.perf_counter()
-        probabilities = classifier.session.run(
-            None, {classifier.input_name: sample_video_frames(path)}
-        )[0][0]
+        classification = classifier.predict(path, action_window=window)
         latency = time.perf_counter() - started
-        ranked = sorted(zip(BATTING_CLASSES, probabilities.tolist()), key=lambda item: item[1], reverse=True)
+        probabilities = classification["probabilities"]
+        ranked = sorted(probabilities.items(), key=lambda item: item[1], reverse=True)
         expected = sorted(COMPATIBLE_LABELS.get(stored_label, set()))
         result = ClipResult(
             path=str(path),
@@ -109,6 +116,7 @@ def evaluate(clips: list[tuple[Path, str]], classifier: BattingVideoClassifier) 
             in_top2=bool(expected) and any(label in expected for label, _ in ranked[:2]),
             session=session_key(path.stem),
             latency_seconds=latency,
+            window=window,
         )
         results.append(result)
         print(
@@ -119,6 +127,20 @@ def evaluate(clips: list[tuple[Path, str]], classifier: BattingVideoClassifier) 
             flush=True,
         )
     return results
+
+
+def action_window_for(path: Path, stored_label: str) -> tuple[int, int] | None:
+    """Production uses the detected action window when landmarks are available."""
+    landmark_path = DATA_DIR / "landmarks" / "batting" / stored_label / f"{path.stem}.json"
+    if not landmark_path.exists():
+        return None
+    try:
+        features = extract_batting_features_from_data(load_landmark_json(landmark_path))
+    except Exception:
+        return None
+    if not features.get("action_detected"):
+        return None
+    return int(features["action_start_frame"]), int(features["action_end_frame"])
 
 
 def _macro_f1(results: list[ClipResult]) -> tuple[float, dict[str, float]]:
@@ -182,6 +204,9 @@ def summarise(results: list[ClipResult]) -> dict:
         session_correct += int(vote in group[0].expected)
 
     thresholds = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
+    distribution: dict[str, int] = {}
+    for result in supported:
+        distribution[result.top1] = distribution.get(result.top1, 0) + 1
     return {
         "clips_total": len(results),
         "clips_supported": len(supported),
@@ -189,6 +214,8 @@ def summarise(results: list[ClipResult]) -> dict:
         "top1_accuracy": round(len(correct) / len(supported), 4) if supported else None,
         "top2_accuracy": round(sum(1 for r in supported if r.in_top2) / len(supported), 4) if supported else None,
         "macro_f1": round(macro_f1, 4),
+        "chance_top1": round(1 / 10, 4),
+        "prediction_distribution": dict(sorted(distribution.items(), key=lambda item: -item[1])),
         "per_class_f1": {label: round(value, 3) for label, value in per_class_f1.items()},
         "per_stored_label": by_stored,
         "mean_confidence_correct": round(statistics.mean(r.top1_confidence for r in correct), 3) if correct else None,

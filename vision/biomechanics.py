@@ -1,6 +1,10 @@
-# Maths Functions: calculate_angle(), calculate_velocity(), calculate_motion_score(), calculate_release_frame(), calculate_legality()
+"""Pose maths shared by the movement metrics.
+
+Contains no bowling-legality logic: the product makes no officiating judgement.
+"""
 
 import math
+import statistics
 
 MIN_VISIBILITY = 0.4
 
@@ -175,7 +179,7 @@ def get_shoulder_width(frame):
     return shoulder_width
 
 
-def normalise_distance(raw_distance, frame, scale="torso"):
+def normalise_distance(raw_distance, frame, scale="torso", fallback=None):
     if raw_distance is None:
         return None
 
@@ -184,19 +188,34 @@ def normalise_distance(raw_distance, frame, scale="torso"):
     else:
         normaliser = get_torso_length(frame)
 
-    if normaliser is None or normaliser == 0:
+    # A single bad frame can shrink the reference body part and inflate the
+    # result, so a clip-level median is used when the per-frame value is unusable.
+    if (normaliser is None or normaliser < 1e-3) and fallback:
+        normaliser = fallback
+
+    if normaliser is None or normaliser < 1e-3:
         return None
 
     return raw_distance / normaliser
 
 
-def calculate_normalised_speed(previous_point, current_point, current_frame, fps):
+def get_stable_torso_length(frames):
+    lengths = [length for frame in frames if (length := get_torso_length(frame)) is not None]
+    return statistics.median(lengths) if lengths else None
+
+
+def get_stable_shoulder_width(frames):
+    widths = [width for frame in frames if (width := get_shoulder_width(frame)) is not None]
+    return statistics.median(widths) if widths else None
+
+
+def calculate_normalised_speed(previous_point, current_point, current_frame, fps, normaliser=None):
     raw_distance = distance_2d(previous_point, current_point)
 
     if raw_distance is None:
         return None
 
-    normalised_distance = normalise_distance(raw_distance, current_frame)
+    normalised_distance = normalise_distance(raw_distance, current_frame, fallback=normaliser)
 
     if normalised_distance is None:
         return None
@@ -227,7 +246,79 @@ def get_landmark_series(frames, landmark_name, should_mirror=False):
     return points
 
 
-def calculate_speed_series(frames, points, fps):
+def median_filter_points(points, window=3):
+    """Rolling median over tracked positions.
+
+    Pose trackers occasionally jump a joint for a single frame. Left alone, that
+    jump dominates any peak-speed measurement, so positions are smoothed before
+    speeds are derived. Missing detections stay missing.
+    """
+    if window < 3 or len(points) < 3:
+        return list(points)
+
+    half = window // 2
+    smoothed = []
+
+    for index, point in enumerate(points):
+        if point is None:
+            smoothed.append(None)
+            continue
+
+        neighbours = [neighbour for neighbour in points[max(0, index - half) : index + half + 1] if neighbour is not None]
+
+        if len(neighbours) < 2:
+            smoothed.append(point)
+            continue
+
+        smoothed.append(
+            {
+                "x": statistics.median(neighbour["x"] for neighbour in neighbours),
+                "y": statistics.median(neighbour["y"] for neighbour in neighbours),
+                "z": statistics.median(neighbour["z"] for neighbour in neighbours),
+                "visibility": min(neighbour["visibility"] for neighbour in neighbours),
+            }
+        )
+
+    return smoothed
+
+
+def smooth_points(points, median_window=3, mean_window=3):
+    """Median then moving-average smoothing for speed derivation.
+
+    The median removes single-frame tracker jumps; the short moving average
+    softens the differentiation noise that remains. Used only for speed and
+    phase timing, never for the replay overlay, which shows raw landmarks.
+    """
+    return _moving_average(median_filter_points(points, median_window), mean_window)
+
+
+def _moving_average(points, window=3):
+    if window < 2 or len(points) < 2:
+        return list(points)
+
+    half = window // 2
+    smoothed = []
+
+    for index, point in enumerate(points):
+        if point is None:
+            smoothed.append(None)
+            continue
+
+        neighbours = [neighbour for neighbour in points[max(0, index - half) : index + half + 1] if neighbour is not None]
+
+        smoothed.append(
+            {
+                "x": sum(neighbour["x"] for neighbour in neighbours) / len(neighbours),
+                "y": sum(neighbour["y"] for neighbour in neighbours) / len(neighbours),
+                "z": sum(neighbour["z"] for neighbour in neighbours) / len(neighbours),
+                "visibility": min(neighbour["visibility"] for neighbour in neighbours),
+            }
+        )
+
+    return smoothed
+
+
+def calculate_speed_series(frames, points, fps, normaliser=None):
     speeds = [None]
 
     for index in range(1, len(points)):
@@ -240,6 +331,7 @@ def calculate_speed_series(frames, points, fps):
             current_point,
             current_frame,
             fps,
+            normaliser=normaliser,
         )
 
         speeds.append(speed)
