@@ -8,11 +8,12 @@ services:
   - type: web
     name: creaselab-api
     runtime: docker
-    # Measured inside this image: ~190 MB idle with models loaded, 442 MB peak
+    # Measured inside this image: ~190 MB idle with models loaded, 442-491 MB peak
     # during an analysis (MediaPipe pose dominates; ONNX arenas are disabled in
-    # the model adapters). That fits the 512 MB free instance with little
-    # headroom, so drop to `standard` if you see out-of-memory restarts.
-    plan: free
+    # the model adapters). 491 MB on a 512 MB free instance is too close to the
+    # limit to rely on, so the blueprint asks for 1 CPU / 2 GB. Change `plan` to
+    # `free` only if you accept out-of-memory restarts on longer clips.
+    plan: standard
     region: frankfurt
     healthCheckPath: /health
     autoDeploy: true

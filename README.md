@@ -259,12 +259,16 @@ depending on clip length.
 | State | RSS |
 | --- | --- |
 | Idle with both models loaded | ~190 MB |
-| Peak during an analysis | ~442 MB |
+| Peak during an analysis | 442–491 MB |
 
 MediaPipe pose extraction is the bulk of it. The retired video model used to add
-another ~300 MB; removing it from the image is what brought peak usage inside the
-free tier. The ONNX Runtime CPU arena is also disabled in the model adapters
+another ~300 MB; removing it from the image is what brought peak usage down. The
+ONNX Runtime CPU arena is also disabled in the model adapters
 (`enable_cpu_mem_arena = False`, about 2% latency for a third of a gigabyte).
+
+491 MB against a 512 MB free instance leaves too little headroom to rely on, so
+the blueprint requests a 1 CPU / 2 GB instance. Switch `plan` to `free` in
+`render.yaml` if you accept occasional out-of-memory restarts on longer clips.
 
 Local container test:
 
